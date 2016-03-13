@@ -8,13 +8,11 @@ namespace ScriptCs
 
         public ScriptHost(IScriptPackManager scriptPackManager, ScriptEnvironment environment)
         {
-            Guard.AgainstNullArgument("scriptPackManager", scriptPackManager);
-
             _scriptPackManager = scriptPackManager;
             Env = environment;
         }
 
-        public IScriptEnvironment Env { get; private set; }
+        public ScriptEnvironment Env { get; private set; }
 
         public T Require<T>() where T : IScriptPackContext
         {

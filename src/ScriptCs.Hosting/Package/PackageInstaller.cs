@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Common.Logging;
 using ScriptCs.Contracts;
 
 namespace ScriptCs.Hosting.Package
@@ -10,26 +11,20 @@ namespace ScriptCs.Hosting.Package
         private readonly IInstallationProvider _installer;
         private readonly ILog _logger;
 
-        [Obsolete("Support for Common.Logging types was deprecated in version 0.15.0 and will soon be removed.")]
-        public PackageInstaller(IInstallationProvider installer, Common.Logging.ILog logger)
-            : this(installer, new CommonLoggingLogProvider(logger))
+        public PackageInstaller(IInstallationProvider installer, ILog logger)
         {
-        }
-
-        public PackageInstaller(IInstallationProvider installer, ILogProvider logProvider)
-        {
-            Guard.AgainstNullArgument("installer", installer);
-            Guard.AgainstNullArgument("logProvider", logProvider);
-
             _installer = installer;
-            _logger = logProvider.ForCurrentType();
+            _logger = logger;
         }
 
         public void InstallPackages(IEnumerable<IPackageReference> packageIds, bool allowPreRelease = false)
         {
-            Guard.AgainstNullArgument("packageIds", packageIds);
+            if (packageIds == null)
+            {
+                throw new ArgumentNullException("packageIds");
+            }
 
-            packageIds = packageIds.Where(packageId => !_installer.IsInstalled(packageId, allowPreRelease)).ToList();
+            packageIds = packageIds.ToList();
 
             if (!packageIds.Any())
             {
@@ -40,13 +35,18 @@ namespace ScriptCs.Hosting.Package
             var exceptions = new List<Exception>();
             foreach (var packageId in packageIds)
             {
+                if (_installer.IsInstalled(packageId, allowPreRelease))
+                {
+                    continue;
+                }
+
                 try
                 {
                     _installer.InstallPackage(packageId, allowPreRelease);
                 }
                 catch (Exception ex)
                 {
-                    _logger.ErrorException("Error installing package.", ex);
+                    _logger.Error(ex.Message, ex);
                     exceptions.Add(ex);
                 }
             }

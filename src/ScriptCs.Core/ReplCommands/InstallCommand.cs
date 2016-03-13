@@ -1,6 +1,6 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using System.Runtime.Versioning;
+using Common.Logging;
 using ScriptCs.Contracts;
 
 namespace ScriptCs.ReplCommands
@@ -12,36 +12,21 @@ namespace ScriptCs.ReplCommands
         private readonly ILog _logger;
         private readonly IInstallationProvider _installationProvider;
 
-        [Obsolete("Support for Common.Logging types was deprecated in version 0.15.0 and will soon be removed.")]
         public InstallCommand(
             IPackageInstaller packageInstaller,
             IPackageAssemblyResolver packageAssemblyResolver,
-            Common.Logging.ILog logger,
-            IInstallationProvider installationProvider)
-            :this(packageInstaller, packageAssemblyResolver,new CommonLoggingLogProvider(logger), installationProvider)
-        {
-        }
-
-        public InstallCommand(
-            IPackageInstaller packageInstaller,
-            IPackageAssemblyResolver packageAssemblyResolver,
-            ILogProvider logProvider,
+            ILog logger,
             IInstallationProvider installationProvider)
         {
             Guard.AgainstNullArgument("packageInstaller", packageInstaller);
             Guard.AgainstNullArgument("packageAssemblyResolver", packageAssemblyResolver);
-            Guard.AgainstNullArgument("logProvider", logProvider);
+            Guard.AgainstNullArgument("logger", logger);
             Guard.AgainstNullArgument("installationProvider", installationProvider);
 
             _packageInstaller = packageInstaller;
             _packageAssemblyResolver = packageAssemblyResolver;
-            _logger = logProvider.ForCurrentType();
+            _logger = logger;
             _installationProvider = installationProvider;
-        }
-
-        public string Description
-        {
-            get { return "Installs a Nuget package. I.e. :install <package> <version>"; }
         }
 
         public string CommandName
@@ -49,7 +34,7 @@ namespace ScriptCs.ReplCommands
             get { return "install"; }
         }
 
-        public object Execute(IRepl repl, object[] args)
+        public object Execute(IScriptExecutor repl, object[] args)
         {
             Guard.AgainstNullArgument("repl", repl);
 
@@ -59,12 +44,13 @@ namespace ScriptCs.ReplCommands
             }
 
             string version = null;
+            var allowPre = false;
             if (args.Length >= 2)
             {
                 version = args[1].ToString();
             }
 
-            var allowPre = args.Length >= 3 && args[2].ToString().ToUpperInvariant() == "PRE";
+            allowPre = args.Length >= 3 && args[2].ToString().ToUpperInvariant() == "PRE";
 
             _logger.InfoFormat("Installing {0}", args[0]);
 
@@ -77,7 +63,7 @@ namespace ScriptCs.ReplCommands
             _packageAssemblyResolver.SavePackages();
 
             var dlls = _packageAssemblyResolver.GetAssemblyNames(repl.FileSystem.CurrentDirectory)
-                .Except(repl.References.Paths).ToArray();
+                .Except(repl.References.PathReferences).ToArray();
 
             repl.AddReferences(dlls);
 

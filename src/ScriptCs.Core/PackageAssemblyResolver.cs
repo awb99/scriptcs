@@ -1,7 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using Common.Logging;
 using ScriptCs.Contracts;
 
 namespace ScriptCs
@@ -11,40 +12,26 @@ namespace ScriptCs
         private readonly IFileSystem _fileSystem;
         private readonly IPackageContainer _packageContainer;
         private readonly ILog _logger;
-        private readonly IAssemblyUtility _assemblyUtility;
-
         private List<IPackageReference> _topLevelPackages;
 
-        [Obsolete("Support for Common.Logging types was deprecated in version 0.15.0 and will soon be removed.")]
-        public PackageAssemblyResolver(
-            IFileSystem fileSystem, IPackageContainer packageContainer, Common.Logging.ILog logger, IAssemblyUtility assemblyUtility)
-            : this(fileSystem, packageContainer, new CommonLoggingLogProvider(logger), assemblyUtility)
-        {
-        }
-
-        public PackageAssemblyResolver(
-            IFileSystem fileSystem, IPackageContainer packageContainer, ILogProvider logProvider, IAssemblyUtility assemblyUtility)
+        public PackageAssemblyResolver(IFileSystem fileSystem, IPackageContainer packageContainer, ILog logger)
         {
             Guard.AgainstNullArgument("fileSystem", fileSystem);
             Guard.AgainstNullArgumentProperty("fileSystem", "PackagesFolder", fileSystem.PackagesFolder);
             Guard.AgainstNullArgumentProperty("fileSystem", "PackagesFile", fileSystem.PackagesFile);
 
-            Guard.AgainstNullArgument("packageContainer", packageContainer);
-            Guard.AgainstNullArgument("logProvider", logProvider);
-            Guard.AgainstNullArgument("assemblyUtility", assemblyUtility);
-
             _fileSystem = fileSystem;
             _packageContainer = packageContainer;
-            _logger = logProvider.ForCurrentType();
-            _assemblyUtility = assemblyUtility;
+            _logger = logger;
         }
 
         public void SavePackages()
         {
             var packagesFolder = Path.Combine(_fileSystem.CurrentDirectory, _fileSystem.PackagesFolder);
+
             if (!_fileSystem.DirectoryExists(packagesFolder))
             {
-                _logger.Warn("Packages directory does not exist!");
+                _logger.Info("Packages directory does not exist!");
                 return;
             }
 
@@ -53,9 +40,12 @@ namespace ScriptCs
 
         public IEnumerable<IPackageReference> GetPackages(string workingDirectory)
         {
-            var packagesFile = Path.Combine(workingDirectory, _fileSystem.PackagesFile);
-            _topLevelPackages = _packageContainer.FindReferences(packagesFile).ToList();
-            return _topLevelPackages.ToArray();
+            var packageFile = Path.Combine(workingDirectory, _fileSystem.PackagesFile);
+            var packages = _packageContainer.FindReferences(packageFile).ToList();
+
+            _topLevelPackages = packages;
+
+            return packages;
         }
 
         public IEnumerable<string> GetAssemblyNames(string workingDirectory)
@@ -66,67 +56,74 @@ namespace ScriptCs
                 return Enumerable.Empty<string>();
             }
 
-            var packagesFile = Path.Combine(workingDirectory, _fileSystem.PackagesFile);
-            var packagesFolder = Path.Combine(workingDirectory, _fileSystem.PackagesFolder);
+            var packageFile = Path.Combine(workingDirectory, _fileSystem.PackagesFile);
+            var packageDir = Path.Combine(workingDirectory, _fileSystem.PackagesFolder);
 
-            var names = new List<string>();
-            GetAssemblyNames(packagesFolder, packages, names, _fileSystem.FileExists(packagesFile));
-            return names;
+            var foundAssemblyPaths = new List<string>();
+
+            LoadFiles(packageDir, packages, foundAssemblyPaths, _fileSystem.FileExists(packageFile));
+
+            return foundAssemblyPaths;
         }
 
-        private void GetAssemblyNames(
+        private void LoadFiles(
             string packageDir,
             IEnumerable<IPackageReference> packageReferences,
-            ICollection<string> names,
-            bool strictLoad)
+            List<string> foundAssemblies,
+            bool strictLoad = true)
         {
-            foreach (var packageReference in packageReferences)
+            foreach (var packageRef in packageReferences)
             {
-                var packageObject = _packageContainer.FindPackage(packageDir, packageReference);
-                if (packageObject == null)
+                var nugetPackage = _packageContainer.FindPackage(packageDir, packageRef);
+                if (nugetPackage == null)
                 {
                     _logger.WarnFormat(
+                        CultureInfo.InvariantCulture,
                         "Cannot find: {0} {1}",
-                        packageReference.PackageId,
-                        packageReference.Version);
+                        packageRef.PackageId,
+                        packageRef.Version);
 
                     continue;
                 }
 
-                var compatibleDlls = packageObject.GetCompatibleDlls(packageReference.FrameworkName);
-                if (compatibleDlls == null)
+                var compatibleFiles = nugetPackage.GetCompatibleDlls(packageRef.FrameworkName);
+                if (compatibleFiles == null)
                 {
                     _logger.WarnFormat(
+                        CultureInfo.InvariantCulture,
                         "Cannot find compatible binaries for {0} in: {1} {2}",
-                        packageReference.FrameworkName,
-                        packageReference.PackageId,
-                        packageReference.Version);
+                        packageRef.FrameworkName,
+                        packageRef.PackageId,
+                        packageRef.Version);
 
                     continue;
                 }
 
-                foreach (var name in compatibleDlls
-                    .Select(packageFile => Path.Combine(packageDir, packageObject.FullName, packageFile))
-                    .Where(path => _assemblyUtility.IsManagedAssembly(path))
-                    .Concat(packageObject.FrameworkAssemblies)
-                    .Where(name => !names.Contains(name)))
+                var compatibleFilePaths = compatibleFiles
+                    .Select(packageFile => Path.Combine(packageDir, nugetPackage.FullName, packageFile))
+                    .Concat(nugetPackage.FrameworkAssemblies);
+
+                foreach (var path in compatibleFilePaths)
                 {
-                    names.Add(name);
-                    _logger.Debug("Found: " + name);
+                    if (foundAssemblies.Contains(path))
+                    {
+                        continue;
+                    }
+
+                    foundAssemblies.Add(path);
+                    _logger.Debug("Found: " + path);
                 }
 
-                if (packageObject.Dependencies == null || !packageObject.Dependencies.Any() || !strictLoad)
+                if (nugetPackage.Dependencies == null || !nugetPackage.Dependencies.Any() || !strictLoad)
                 {
                     continue;
                 }
 
-                var dependencyReferences = packageObject.Dependencies
-                    .Where(dependency =>
-                        _topLevelPackages.All(topLevelPackage => topLevelPackage.PackageId != dependency.Id))
-                    .Select(dependency =>
-                        new PackageReference(dependency.Id, dependency.FrameworkName, dependency.Version));
+                var dependencyReferences = nugetPackage.Dependencies
+                    .Where(i => _topLevelPackages.All(x => x.PackageId != i.Id))
+                    .Select(i => new PackageReference(i.Id, i.FrameworkName, i.Version));
 
-                GetAssemblyNames(packageDir, dependencyReferences, names, true);
+                LoadFiles(packageDir, dependencyReferences, foundAssemblies, true);
             }
         }
     }

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.IO;
+using Common.Logging;
+
 using ScriptCs.Contracts;
 
 namespace ScriptCs.Command
@@ -7,19 +9,20 @@ namespace ScriptCs.Command
     internal class CleanCommand : ICleanCommand
     {
         private readonly string _scriptName;
+
         private readonly IFileSystem _fileSystem;
+
         private readonly ILog _logger;
 
-        public CleanCommand(string scriptName, IFileSystem fileSystem, ILogProvider logProvider)
+        public CleanCommand(string scriptName, IFileSystem fileSystem, ILog logger)
         {
+            Guard.AgainstNullArgument("fileSystem", fileSystem);
             Guard.AgainstNullArgumentProperty("fileSystem", "PackagesFolder", fileSystem.PackagesFolder);
             Guard.AgainstNullArgumentProperty("fileSystem", "DllCacheFolder", fileSystem.DllCacheFolder);
 
-            Guard.AgainstNullArgument("logProvider", logProvider);
-
             _scriptName = scriptName;
             _fileSystem = fileSystem;
-            _logger = logProvider.ForCurrentType();
+            _logger = logger;
         }
 
         public CommandResult Execute()
@@ -49,12 +52,12 @@ namespace ScriptCs.Command
                     _fileSystem.DeleteDirectory(cacheFolder);
                 }
 
-                _logger.Info("Cleaning completed.");
+                _logger.Info("Clean completed.");
                 return CommandResult.Success;
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                _logger.ErrorFormat("Cleaning failed: {0}.", ex, ex.Message);
+                _logger.ErrorFormat("Clean failed: {0}.", e.Message);
                 return CommandResult.Error;
             }
         }

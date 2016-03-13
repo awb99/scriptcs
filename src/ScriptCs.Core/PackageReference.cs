@@ -44,7 +44,7 @@ namespace ScriptCs
             {
                 if (stringVersion.Contains("-"))
                 {
-                    var splitVersion = stringVersion.Split(new[] { '-' }, 2);
+                    var splitVersion = stringVersion.Split('-');
                     if (splitVersion.Length == 2)
                     {
                         Version = new Version(splitVersion[0]);

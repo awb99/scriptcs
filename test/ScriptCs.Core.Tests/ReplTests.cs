@@ -2,13 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Common.Logging;
 using Moq;
-using Moq.Protected;
-using Ploeh.AutoFixture.Xunit;
 using ScriptCs.Contracts;
 using Should;
 using Xunit;
-using Xunit.Extensions;
 
 namespace ScriptCs.Tests
 {
@@ -19,14 +17,11 @@ namespace ScriptCs.Tests
             public Mocks()
             {
                 FileSystem = new Mock<IFileSystem>();
-                FileSystem.SetupGet(x => x.CurrentDirectory).Returns("");
                 FileSystem.SetupGet(x => x.BinFolder).Returns("bin");
                 FileSystem.SetupGet(x => x.DllCacheFolder).Returns(".cache");
-                FileSystem.SetupGet(x => x.PackagesFolder).Returns("scriptcs_packages");
+                
                 ScriptEngine = new Mock<IScriptEngine>();
-                LogProvider = new TestLogProvider();
-                ScriptLibraryComposer = new Mock<IScriptLibraryComposer>();
-                ScriptLibraryComposer.SetupGet(p => p.ScriptLibrariesFile).Returns("PackageScripts.csx");
+                Logger = new Mock<ILog>();
                 Console = new Mock<IConsole>();
                 ScriptPack = new Mock<IScriptPack>();
                 FilePreProcessor = new Mock<IFilePreProcessor>();
@@ -40,15 +35,13 @@ namespace ScriptCs.Tests
 
             public Mock<IScriptEngine> ScriptEngine { get; private set; }
 
-            public TestLogProvider LogProvider { get; private set; }
+            public Mock<ILog> Logger { get; private set; }
 
             public Mock<IConsole> Console { get; private set; }
 
             public Mock<IScriptPack> ScriptPack { get; private set; }
 
             public Mock<IFilePreProcessor> FilePreProcessor { get; private set; }
-
-            public Mock<IScriptLibraryComposer> ScriptLibraryComposer { get; private set; }
 
             public Mock<IReplCommand>[] ReplCommands { get; set; }
         }
@@ -60,8 +53,7 @@ namespace ScriptCs.Tests
                 mocks.FileSystem.Object,
                 mocks.ScriptEngine.Object,
                 mocks.ObjectSerializer.Object,
-                mocks.LogProvider,
-                mocks.ScriptLibraryComposer.Object,
+                mocks.Logger.Object,
                 mocks.Console.Object,
                 mocks.FilePreProcessor.Object,
                 mocks.ReplCommands.Select(x => x.Object));
@@ -76,6 +68,7 @@ namespace ScriptCs.Tests
                 var repl = GetRepl(mocks);
                 repl.FileSystem.ShouldEqual(mocks.FileSystem.Object);
                 repl.ScriptEngine.ShouldEqual(mocks.ScriptEngine.Object);
+                repl.Logger.ShouldEqual(mocks.Logger.Object);
                 repl.Console.ShouldEqual(mocks.Console.Object);
             }
         }
@@ -93,7 +86,7 @@ namespace ScriptCs.Tests
                 _mocks = new Mocks();
                 _repl = GetRepl(_mocks);
                 _mocks.FileSystem.Setup(x => x.CurrentDirectory).Returns(_tempPath);
-                var paths = new[] { Path.Combine(_tempPath, "path") };
+                var paths = new[] { Path.Combine(_tempPath, "path" ) };
                 _repl.Initialize(paths, new[] { _mocks.ScriptPack.Object });
             }
 
@@ -102,10 +95,10 @@ namespace ScriptCs.Tests
             {
                 foreach (var reference in Repl.DefaultReferences)
                 {
-                    _repl.References.Paths.ShouldContain(reference);
+                    _repl.References.PathReferences.ShouldContain(reference);
                 }
 
-                _repl.References.Paths.ShouldContain(Path.Combine(_tempPath, "path"));
+                _repl.References.PathReferences.ShouldContain(Path.Combine(_tempPath, "path"));
             }
 
             [Fact]
@@ -166,7 +159,6 @@ namespace ScriptCs.Tests
                     .Returns(new FilePreProcessorResult { Code = "foo" });
                 _repl = GetRepl(_mocks);
                 _repl.Console.ForegroundColor = ConsoleColor.White;
-                _repl.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>(), String.Empty);
                 _repl.Execute("foo");
             }
 
@@ -189,8 +181,8 @@ namespace ScriptCs.Tests
                     x => x.Execute(
                         "foo",
                         new string[0],
-                        It.Is<AssemblyReferences>(i => i.Assemblies.SequenceEqual(_repl.References.Assemblies)),
-                        It.Is<IEnumerable<string>>(i => i.SequenceEqual(_repl.Namespaces)),
+                        _repl.References,
+                        Repl.DefaultNamespaces,
                         It.IsAny<ScriptPackSession>()));
             }
 
@@ -206,95 +198,10 @@ namespace ScriptCs.Tests
                     It.IsAny<string>(),
                     It.IsAny<string[]>(),
                     It.IsAny<AssemblyReferences>(),
-                    It.Is<IEnumerable<string>>(i => i.SequenceEqual(_repl.Namespaces)),
+                    It.Is<IEnumerable<string>>(i => Equals(i, _repl.Namespaces)),
                     It.IsAny<ScriptPackSession>()));
 
                 _repl.Namespaces.Count().ShouldEqual(ScriptExecutor.DefaultNamespaces.Count() + 2);
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldAddNamespacesFromScriptLibrary(
-                [Frozen] Mock<IScriptEngine> scriptEngine,
-                Mock<Repl> repl
-                )
-            {
-                repl.Protected();
-                repl.Setup(r => r.InjectScriptLibraries(It.IsAny<string>(), It.IsAny<FilePreProcessorResult>(), It.IsAny<IDictionary<string, object>>()))
-                    .Callback((string p, FilePreProcessorResult r, IDictionary<string, object> s) =>
-                    {
-                        r.Namespaces.Add("Foo.Bar");
-                    });
-
-                scriptEngine.Setup(e => e.Execute(
-                    It.IsAny<string>(),
-                    It.IsAny<string[]>(),
-                    It.IsAny<AssemblyReferences>(),
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<ScriptPackSession>()));
-
-                repl.Object.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
-                repl.Object.Execute("", new string[] {});
-
-                scriptEngine.Verify(
-                    e => e.Execute(
-                        It.IsAny<string>(),
-                        It.IsAny<string[]>(),
-                        It.IsAny<AssemblyReferences>(),
-                        It.Is<IEnumerable<string>>(x => x.Contains("Foo.Bar")),
-                        It.IsAny<ScriptPackSession>()),
-                    Times.Once());
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldAddReferencesFromScriptLibrary(
-                [Frozen] Mock<IScriptEngine> scriptEngine,
-                Mock<Repl> repl
-                )
-            {
-                repl.Protected();
-                repl.Setup(r => r.InjectScriptLibraries(It.IsAny<string>(), It.IsAny<FilePreProcessorResult>(), It.IsAny<IDictionary<string, object>>()))
-                    .Callback((string p, FilePreProcessorResult r, IDictionary<string, object> s) =>
-                    {
-                        r.References.Add("Foo.Bar");
-                    });
-
-                scriptEngine.Setup(e => e.Execute(
-                    It.IsAny<string>(),
-                    It.IsAny<string[]>(),
-                    It.IsAny<AssemblyReferences>(),
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<ScriptPackSession>()));
-
-
-                repl.Object.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
-                repl.Object.Execute("", new string[] { });
-
-                scriptEngine.Verify(
-                    e => e.Execute(
-                        It.IsAny<string>(),
-                        It.IsAny<string[]>(),
-                        It.Is<AssemblyReferences>(x => x.Paths.Contains("Foo.Bar")),
-                        It.IsAny<IEnumerable<string>>(),
-                        It.IsAny<ScriptPackSession>()),
-                    Times.Once());
-            }
-
-            [Fact]
-            public void ShouldRemoveInvalidNamespacesIfScriptResultContainsany()
-            {
-                _mocks.FilePreProcessor.Setup(x => x.ProcessScript(It.Is<string>(i => i == "#load foo.csx")))
-                    .Returns(new FilePreProcessorResult { Namespaces = new List<string> { "Foo", "Bar" } });
-                _mocks.ScriptEngine.Setup(
-                    x => x.Execute(
-                            It.IsAny<string>(),
-                            It.IsAny<string[]>(),
-                            It.IsAny<AssemblyReferences>(),
-                            It.IsAny<IEnumerable<string>>(),
-                            It.IsAny<ScriptPackSession>())).Returns(new ScriptResult(invalidNamespaces: new string[] { "Foo" }));
-
-                _repl.Execute("#load foo.csx");
-                _repl.Namespaces.Count().ShouldEqual(ScriptExecutor.DefaultNamespaces.Count() + 1);
-                _repl.Namespaces.ShouldNotContain("Foo");
             }
 
             [Fact]
@@ -340,8 +247,8 @@ namespace ScriptCs.Tests
                 mocks.FilePreProcessor.Setup(x => x.ProcessScript(It.IsAny<string>()))
                      .Returns(new FilePreProcessorResult());
                 mocks.FileSystem.Setup(x => x.FileExists("file.csx")).Returns(true);
+
                 _repl = GetRepl(mocks);
-                _repl.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>(), "");
                 _repl.Execute("#load \"file.csx\"");
 
                 mocks.ScriptEngine.Verify(
@@ -387,8 +294,8 @@ namespace ScriptCs.Tests
                 _repl.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
                 _repl.Execute("#r \"my.dll\"");
 
-                //default references = 10, + 1 we just added
-                _repl.References.Paths.Count().ShouldEqual(11);
+                //default references = 6, + 1 we just added
+                _repl.References.PathReferences.Count().ShouldEqual(7);
             }
 
             [Fact]
@@ -420,7 +327,7 @@ namespace ScriptCs.Tests
                 _repl.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
                 _repl.Execute("#r \"PresentationCore\"");
 
-                _repl.References.Paths.Contains("PresentationCore").ShouldBeTrue();
+                _repl.References.PathReferences.Contains("PresentationCore").ShouldBeTrue();
             }
 
             [Fact]
@@ -437,7 +344,7 @@ namespace ScriptCs.Tests
                 _repl.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
                 _repl.Execute("#r \"my.dll\"");
 
-                _repl.References.Paths.Contains("my.dll").ShouldBeTrue();
+                _repl.References.PathReferences.Contains("my.dll").ShouldBeTrue();
             }
 
             [Fact]
@@ -458,7 +365,7 @@ namespace ScriptCs.Tests
                 _repl = GetRepl(mocks);
                 _repl.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
                 _repl.Execute("#r \"my.dll\"");
-                _repl.References.Paths.Contains("my.dll").ShouldBeFalse();
+                _repl.References.PathReferences.Contains("my.dll").ShouldBeFalse();
             }
 
             [Fact]
@@ -696,7 +603,7 @@ namespace ScriptCs.Tests
 
                 var helloCommand = new Mock<IReplCommand>();
                 helloCommand.SetupGet(x => x.CommandName).Returns("hello");
-                helloCommand.Setup(x => x.Execute(It.IsAny<IRepl>(), It.IsAny<object[]>()))
+                helloCommand.Setup(x => x.Execute(It.IsAny<IScriptExecutor>(), It.IsAny<object[]>()))
                     .Returns(returnValue);
 
                 var mocks = new Mocks { ReplCommands = new[] { helloCommand } };
@@ -717,7 +624,7 @@ namespace ScriptCs.Tests
 
                 var helloCommand = new Mock<IReplCommand>();
                 helloCommand.SetupGet(x => x.CommandName).Returns("hello");
-                helloCommand.Setup(x => x.Execute(It.IsAny<IRepl>(), It.IsAny<object[]>()))
+                helloCommand.Setup(x => x.Execute(It.IsAny<IScriptExecutor>(), It.IsAny<object[]>()))
                     .Returns(returnValue);
 
                 var mocks = new Mocks { ReplCommands = new[] { helloCommand } };

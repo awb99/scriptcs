@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Common.Logging;
 using NuGet;
+
 using ScriptCs.Contracts;
 using IFileSystem = ScriptCs.Contracts.IFileSystem;
 
@@ -17,19 +19,12 @@ namespace ScriptCs.Hosting.Package
 
         private static readonly Version EmptyVersion = new Version();
 
-        [Obsolete("Support for Common.Logging types was deprecated in version 0.15.0 and will soon be removed.")]
-        public NugetInstallationProvider(IFileSystem fileSystem, Common.Logging.ILog logger)
-            : this(fileSystem, new CommonLoggingLogProvider(logger))
-        {
-        }
-
-        public NugetInstallationProvider(IFileSystem fileSystem, ILogProvider logProvider)
+        public NugetInstallationProvider(IFileSystem fileSystem, ILog logger)
         {
             Guard.AgainstNullArgument("fileSystem", fileSystem);
-            Guard.AgainstNullArgument("logProvider", logProvider);
 
             _fileSystem = fileSystem;
-            _logger = logProvider.ForCurrentType();
+            _logger = logger;
         }
 
         public void Initialize()

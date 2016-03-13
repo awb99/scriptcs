@@ -37,7 +37,7 @@ namespace ScriptCs.Contracts
             }
         }
 
-        public virtual IEnumerable<IScriptPackContext> Contexts
+        public IEnumerable<IScriptPackContext> Contexts
         {
             get { return _contexts; }
         }

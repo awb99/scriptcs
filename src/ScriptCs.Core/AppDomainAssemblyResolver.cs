@@ -1,6 +1,11 @@
-﻿using System;
+﻿using System.Data;
+using Common.Logging;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
+using System.Text;
+using System.Threading.Tasks;
 using ScriptCs.Contracts;
 using System.IO;
 
@@ -12,36 +17,19 @@ namespace ScriptCs
         private readonly IFileSystem _fileSystem;
         private readonly IAssemblyResolver _resolver;
         private readonly IAssemblyUtility _assemblyUtility;
-        private readonly IDictionary<string, AssemblyInfo> _assemblyInfoMap;
+        private IDictionary<string, AssemblyInfo> _assemblyInfoMap;
 
-        [Obsolete("Support for Common.Logging types was deprecated in version 0.15.0 and will soon be removed.")]
-        public AppDomainAssemblyResolver(
-            Common.Logging.ILog logger,
-            IFileSystem fileSystem,
-            IAssemblyResolver resolver,
-            IAssemblyUtility assemblyUtility,
-            IDictionary<string, AssemblyInfo> assemblyInfoMap = null,
-            Func<object, ResolveEventArgs, Assembly> resolveHandler = null)
-            : this(new CommonLoggingLogProvider(logger), fileSystem, resolver, assemblyUtility, assemblyInfoMap, resolveHandler)
+        public AppDomainAssemblyResolver(ILog logger, IFileSystem fileSystem, IAssemblyResolver resolver, IAssemblyUtility assemblyUtility, IDictionary<string, AssemblyInfo> assemblyInfoMap = null, Func<object, ResolveEventArgs, Assembly> resolveHandler = null)
         {
-        }
+            _assemblyInfoMap = assemblyInfoMap;
+            if (_assemblyInfoMap == null)
+            {
+                _assemblyInfoMap = new Dictionary<string, AssemblyInfo>();
+            }
 
-        public AppDomainAssemblyResolver(
-            ILogProvider logProvider,
-            IFileSystem fileSystem,
-            IAssemblyResolver resolver,
-            IAssemblyUtility assemblyUtility,
-            IDictionary<string, AssemblyInfo> assemblyInfoMap = null,
-            Func<object, ResolveEventArgs, Assembly> resolveHandler = null)
-        {
-            Guard.AgainstNullArgument("logProvider", logProvider);
-            Guard.AgainstNullArgument("fileSystem", fileSystem);
-            Guard.AgainstNullArgument("resolver", resolver);
-            Guard.AgainstNullArgument("assemblyUtility", assemblyUtility);
-
-            _assemblyInfoMap = assemblyInfoMap ?? new Dictionary<string, AssemblyInfo>();
             _assemblyUtility = assemblyUtility;
-            _logger = logProvider.ForCurrentType();
+            
+            _logger = logger;
             _fileSystem = fileSystem;
             _resolver = resolver;
 
@@ -54,24 +42,20 @@ namespace ScriptCs
         }
 
         internal Assembly AssemblyResolve(object sender, ResolveEventArgs args)
-        {
-            AssemblyInfo assemblyInfo;
+        {     
+            AssemblyInfo assemblyInfo = null;
             var name = new AssemblyName(args.Name);
-
+            
             if (_assemblyInfoMap.TryGetValue(name.Name, out assemblyInfo))
-            {
-                lock (assemblyInfo)
-                {
+            {                
+                lock(assemblyInfo)
+                {                    
                     if (assemblyInfo.Assembly == null)
-                    {
                         assemblyInfo.Assembly = _assemblyUtility.LoadFile(assemblyInfo.Path);
-                    }
                 }
-
                 _logger.DebugFormat("Resolving from: {0} to: {1}", args.Name, assemblyInfo.Assembly.GetName());
                 return assemblyInfo.Assembly;
             }
-
             return null;
         }
 
@@ -80,7 +64,7 @@ namespace ScriptCs
             var hostAssemblyPaths = _fileSystem.EnumerateBinaries(_fileSystem.HostBin, SearchOption.TopDirectoryOnly);
             AddAssemblyPaths(hostAssemblyPaths);
 
-            var globalPaths = _resolver.GetAssemblyPaths(_fileSystem.GlobalFolder, true);
+            var globalPaths = _resolver.GetAssemblyPaths(_fileSystem.ModulesFolder, true);
             AddAssemblyPaths(globalPaths);
 
             var scriptAssemblyPaths = _resolver.GetAssemblyPaths(_fileSystem.CurrentDirectory, true);
@@ -89,40 +73,25 @@ namespace ScriptCs
 
         public virtual void AddAssemblyPaths(IEnumerable<string> assemblyPaths)
         {
-            Guard.AgainstNullArgument("assemblyPaths", assemblyPaths);
-
             foreach (var assemblyPath in assemblyPaths)
             {
-                if (_assemblyUtility.IsManagedAssembly(assemblyPath))
+                var info = new AssemblyInfo {Path = assemblyPath};
+                var name = _assemblyUtility.GetAssemblyName(assemblyPath);
+                info.Version = name.Version;
+
+                AssemblyInfo foundInfo = null;
+                var found = _assemblyInfoMap.TryGetValue(name.Name, out foundInfo );
+
+                if (!found || foundInfo.Version.CompareTo(info.Version) < 0)
                 {
-                    var info = new AssemblyInfo { Path = assemblyPath };
-                    var name = _assemblyUtility.GetAssemblyName(assemblyPath);
-                    info.Version = name.Version;
-
-                    AssemblyInfo foundInfo;
-                    var found = _assemblyInfoMap.TryGetValue(name.Name, out foundInfo);
-
-                    if (!found || foundInfo.Version.CompareTo(info.Version) < 0)
+                    //if the assembly being passed is a higher version and an assembly with it's name has already been resolved
+                    if (found && foundInfo.Assembly != null)
                     {
-                        // if the assembly being passed is a higher version
-                        // and an assembly with it's name has already been resolved
-                        if (found && foundInfo.Assembly != null)
-                        {
-                            _logger.WarnFormat(
-                                "Conflict: Assembly {0} with version {1} cannot be added as it has already been resolved",
-                                assemblyPath,
-                                info.Version);
-
-                            continue;
-                        }
-
-                        _logger.DebugFormat("Mapping Assembly {0} to version:{1}", name.Name, name.Version);
-                        _assemblyInfoMap[name.Name] = info;
+                        _logger.WarnFormat("Conflict: Assembly {0} with version {1} cannot be added as it has already been resolved", assemblyPath, info.Version);
+                        continue;
                     }
-                }
-                else
-                {
-                    _logger.DebugFormat("Skipping Mapping Native Assembly {0}", assemblyPath);
+                    _logger.DebugFormat("Mapping Assembly {0} to version:{1}", name.Name, name.Version);
+                    _assemblyInfoMap[name.Name] = info;
                 }
             }
         }

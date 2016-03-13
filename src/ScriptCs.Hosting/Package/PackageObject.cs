@@ -62,13 +62,5 @@ namespace ScriptCs.Hosting.Package
 
             return compatibleFiles != null ? compatibleFiles.Select(i => i.Path) : null;
         }
-
-        public IEnumerable<string> GetContentFiles()
-        {
-            foreach (var file in _package.GetContentFiles())
-            {
-                yield return file.Path;
-            }
-        }
     }
 }

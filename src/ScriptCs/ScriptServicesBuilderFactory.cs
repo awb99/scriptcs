@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using ScriptCs.Contracts;
 using ScriptCs.Hosting;
 
@@ -6,37 +7,57 @@ namespace ScriptCs
 {
     public static class ScriptServicesBuilderFactory
     {
-        public static IScriptServicesBuilder Create(Config config, string[] scriptArgs)
+        public static IScriptServicesBuilder Create(ScriptCsArgs commandArgs, string[] scriptArgs, IConsole console)
         {
-            Guard.AgainstNullArgument("commandArgs", config);
+            Guard.AgainstNullArgument("commandArgs", commandArgs);
             Guard.AgainstNullArgument("scriptArgs", scriptArgs);
 
-            IConsole console = new ScriptConsole();
-            if (!string.IsNullOrWhiteSpace(config.OutputFile))
+          
+            if (!string.IsNullOrWhiteSpace(commandArgs.Output))
             {
-                console = new FileConsole(config.OutputFile, console);
+                console = new FileConsole(commandArgs.Output, console);
             }
 
-            var logProvider = new ColoredConsoleLogProvider(config.LogLevel, console);
-            var initializationServices = new InitializationServices(logProvider);
+            var configurator = new LoggerConfigurator(commandArgs.LogLevel);
+            configurator.Configure(console);
+            var logger = configurator.GetLogger();
+            var initializationServices = new InitializationServices(logger);
             initializationServices.GetAppDomainAssemblyResolver().Initialize();
 
-            // NOTE (adamralph): this is a hideous assumption about what happens inside the CommandFactory.
-            // It is a result of the ScriptServicesBuilderFactory also having to know what is going to happen inside the
-            // Command Factory so that it builds the builder(:-p) correctly in advance.
-            // This demonstrates the technical debt that exists with the ScriptServicesBuilderFactory and CommandFactory
-            // in their current form. We have a separate refactoring task raised to address this.
-            var repl = config.Repl ||
-                (!config.Clean && config.PackageName == null && !config.Save && config.ScriptName == null);
+            var scriptServicesBuilder = new ScriptServicesBuilder(console, logger, null, null, initializationServices)
+                .Cache(commandArgs.Cache)
+                .Debug(commandArgs.Debug)
+                .LogLevel(commandArgs.LogLevel)
+                .ScriptName(commandArgs.ScriptName)
+                .Repl(commandArgs.Repl);
 
-            var scriptServicesBuilder = new ScriptServicesBuilder(console, logProvider, null, null, initializationServices)
-                .Cache(config.Cache)
-                .Debug(config.Debug)
-                .LogLevel(config.LogLevel)
-                .ScriptName(config.ScriptName)
-                .Repl(repl);
+            var modules = commandArgs.Modules == null
+                ? new string[0]
+                : commandArgs.Modules.Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries);
 
-            return scriptServicesBuilder.LoadModules(Path.GetExtension(config.ScriptName) ?? ".csx", config.Modules);
+            var extension = Path.GetExtension(commandArgs.ScriptName);
+
+            if (string.IsNullOrWhiteSpace(extension) && !commandArgs.Repl)
+            {
+                // No extension was given, i.e we might have something like
+                // "scriptcs foo" to deal with. We activate the default extension,
+                // to make sure it's given to the LoadModules below.
+                extension = ".csx";
+
+                if (!string.IsNullOrWhiteSpace(commandArgs.ScriptName))
+                {
+                    // If the was in fact a script specified, we'll extend it
+                    // with the default extension, assuming the user giving
+                    // "scriptcs foo" actually meant "scriptcs foo.csx". We
+                    // perform no validation here thought; let it be done by
+                    // the activated command. If the file don't exist, it's
+                    // up to the command to detect and report.
+
+                    commandArgs.ScriptName += extension;
+                }
+            }
+
+            return scriptServicesBuilder.LoadModules(extension, modules);
         }
     }
 }

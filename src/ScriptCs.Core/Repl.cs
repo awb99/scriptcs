@@ -3,80 +3,51 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Common.Logging;
 using ScriptCs.Contracts;
 
 namespace ScriptCs
 {
-    public class Repl : ScriptExecutor, IRepl
+    public class Repl : ScriptExecutor
     {
         private readonly string[] _scriptArgs;
 
         private readonly IObjectSerializer _serializer;
-        private readonly ILog _log;
-
-        [Obsolete("Support for Common.Logging types was deprecated in version 0.15.0 and will soon be removed.")]
-        public Repl(
-            string[] scriptArgs,
-            IFileSystem fileSystem,
-            IScriptEngine scriptEngine,
-            IObjectSerializer serializer,
-            Common.Logging.ILog logger,
-            IScriptLibraryComposer composer,
-            IConsole console,
-            IFilePreProcessor filePreProcessor,
-            IEnumerable<IReplCommand> replCommands)
-            : this(
-                scriptArgs,
-                fileSystem,
-                scriptEngine,
-                serializer,
-                new CommonLoggingLogProvider(logger),
-                composer,
-                console,
-                filePreProcessor,
-                replCommands)
-        {
-        }
 
         public Repl(
             string[] scriptArgs,
             IFileSystem fileSystem,
             IScriptEngine scriptEngine,
             IObjectSerializer serializer,
-            ILogProvider logProvider,
-            IScriptLibraryComposer composer,
+            ILog logger,
             IConsole console,
             IFilePreProcessor filePreProcessor,
             IEnumerable<IReplCommand> replCommands)
-            : base(fileSystem, filePreProcessor, scriptEngine, logProvider, composer)
+            : base(fileSystem, filePreProcessor, scriptEngine, logger)
         {
-            Guard.AgainstNullArgument("serializer", serializer);
-            Guard.AgainstNullArgument("logProvider", logProvider);
-            Guard.AgainstNullArgument("console", console);
-
             _scriptArgs = scriptArgs;
             _serializer = serializer;
-            _log = logProvider.ForCurrentType();
             Console = console;
-            Commands = replCommands != null ? replCommands.Where(x => x.CommandName != null).ToDictionary(x => x.CommandName, x => x) : new Dictionary<string, IReplCommand>();
+            Commands = replCommands != null ? replCommands.ToList() : new List<IReplCommand>();
         }
 
         public string Buffer { get; set; }
 
         public IConsole Console { get; private set; }
 
-        public Dictionary<string, IReplCommand> Commands { get; private set; }
+        public IEnumerable<IReplCommand> Commands { get; private set; }
 
         public override void Terminate()
         {
             base.Terminate();
-            _log.Debug("Exiting console");
+            Logger.Debug("Exiting console");
             Console.Exit();
         }
 
         public override ScriptResult Execute(string script, params string[] scriptArgs)
         {
             Guard.AgainstNullArgument("script", script);
+
             try
             {
                 if (script.StartsWith(":"))
@@ -84,9 +55,9 @@ namespace ScriptCs
                     var tokens = script.Split(' ');
                     if (tokens[0].Length > 1)
                     {
-                        var command = Commands.FirstOrDefault(x => x.Key == tokens[0].Substring(1));
+                        var command = Commands.FirstOrDefault(x => x.CommandName == tokens[0].Substring(1));
 
-                        if (command.Value != null)
+                        if (command != null)
                         {
                             var argsToPass = new List<object>();
                             foreach (var argument in tokens.Skip(1))
@@ -116,7 +87,7 @@ namespace ScriptCs
                                 argsToPass.Add(argumentResult.ReturnValue);
                             }
 
-                            var commandResult = command.Value.Execute(this, argsToPass.ToArray());
+                            var commandResult = command.Execute(this, argsToPass.ToArray());
                             return ProcessCommandResult(commandResult);
                         }
                     }
@@ -133,17 +104,12 @@ namespace ScriptCs
                 }
 
                 Console.ForegroundColor = ConsoleColor.Cyan;
-                
-                InjectScriptLibraries(FileSystem.CurrentDirectory, preProcessResult, ScriptPackSession.State);
 
                 Buffer = (Buffer == null)
                     ? preProcessResult.Code
                     : Buffer + Environment.NewLine + preProcessResult.Code;
 
-                var namespaces = Namespaces.Union(preProcessResult.Namespaces);
-                var references = References.Union(preProcessResult.References);
-
-                var result = ScriptEngine.Execute(Buffer, _scriptArgs, references, namespaces, ScriptPackSession);
+                var result = ScriptEngine.Execute(Buffer, _scriptArgs, References, Namespaces, ScriptPackSession);
                 if (result == null) return ScriptResult.Empty;
 
                 if (result.CompileExceptionInfo != null)
@@ -156,11 +122,6 @@ namespace ScriptCs
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine(result.ExecuteExceptionInfo.SourceException.Message);
-                }
-
-                if (result.InvalidNamespaces.Any())
-                {
-                    RemoveNamespaces(result.InvalidNamespaces.ToArray());
                 }
 
                 if (!result.IsCompleteSubmission)

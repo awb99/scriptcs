@@ -14,8 +14,6 @@ namespace ScriptCs
 
         public LoadLineProcessor(IFileSystem fileSystem)
         {
-            Guard.AgainstNullArgument("fileSystem", fileSystem);
-
             _fileSystem = fileSystem;
         }
 

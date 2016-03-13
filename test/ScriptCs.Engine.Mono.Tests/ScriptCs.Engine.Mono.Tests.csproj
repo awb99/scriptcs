@@ -11,10 +11,10 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\</SolutionDir>
     <CodeAnalysisRuleSet>..\..\ScriptCs.Test.ruleset</CodeAnalysisRuleSet>
     <NoWarn>1701</NoWarn>
-    <LangVersion>5</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -34,16 +34,16 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\*.cs">
-      <Link>%(Filename)%(Extension)</Link>
+    <Compile Include="..\ScriptCsAutoDataAttribute.cs">
+      <Link>ScriptCsAutoDataAttribute.cs</Link>
+    </Compile>
+    <Compile Include="..\ScriptCsMoqCustomization.cs">
+      <Link>ScriptCsMoqCustomization.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Parser\SyntaxParserTests.cs" />
     <Compile Include="MonoModuleTest.cs" />
     <Compile Include="MonoScriptEngineTests.cs" />
-    <Compile Include="Segmenter\ScriptLexerTests.cs" />
-    <Compile Include="Segmenter\RegionParserTests.cs" />
-    <Compile Include="Segmenter\ScriptSegmenterTests.cs" />
-    <Compile Include="Segmenter\CodeAnalyserTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
@@ -53,14 +53,8 @@
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Common.Logging, Version=2.1.2.0, Culture=neutral, PublicKeyToken=af08829b84f0328e, processorArchitecture=MSIL">
+    <Reference Include="Common.Logging">
       <HintPath>..\..\packages\Common.Logging.2.1.2\lib\net40\Common.Logging.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Mono.CSharp, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Mono.CSharp.4.0.0.143\lib\4.5\Mono.CSharp.dll</HintPath>
-      <Aliases>MonoCSharp</Aliases>
     </Reference>
     <Reference Include="Moq">
       <HintPath>..\..\packages\Moq.4.2.1402.2112\lib\net40\Moq.dll</HintPath>
@@ -83,6 +77,10 @@
     </Reference>
     <Reference Include="xunit.extensions">
       <HintPath>..\..\packages\xunit.extensions.1.9.2\lib\net20\xunit.extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.CSharp">
+      <HintPath>..\..\packages\Mono.CSharp.3.4.0\lib\net40\Mono.CSharp.dll</HintPath>
+      <Aliases>MonoCSharp</Aliases>
     </Reference>
   </ItemGroup>
   <ItemGroup>

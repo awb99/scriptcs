@@ -16,7 +16,14 @@
     <NuGetExePath>$(Root).nuget\NuGet.exe</NuGetExePath>
 
     <CommonVersionInfoPath>$([System.IO.Path]::Combine( $(Root), 'common\CommonVersionInfo.cs' ))</CommonVersionInfoPath>
+
+    <VisualStudioVersion Condition=" '$(VisualStudioVersion)' == '' " >11.0</VisualStudioVersion>
+    <CodeAnalysisToolPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\CodeAnalysis\</CodeAnalysisToolPath>
+    <CodeAnalysisTargetsPath>$(CodeAnalysisToolPath)Microsoft.CodeAnalysis.targets</CodeAnalysisTargetsPath>
+    <CodeAnalysisRuleSetDirectories>$(Root)</CodeAnalysisRuleSetDirectories>
   </PropertyGroup>
+
+  <Import Project="$(CodeAnalysisTargetsPath)" Condition=" Exists('$(CodeAnalysisTargetsPath)') " />
 
   <ItemGroup>
     <Solution Include="$(Root)*.sln">
@@ -31,7 +38,7 @@
     <TestProjects Include="$(Root)test\**\*.csproj" />
   </ItemGroup>
 
-  <Target Name="FullBuild" DependsOnTargets="Clean; Build; Test; Package" />
+  <Target Name="FullBuild" DependsOnTargets="Clean; Build; CodeAnalysis; Test; Package" />
 
   <Target Name="Clean" DependsOnTargets="_CleanSolution; _CleanArtifacts">
     <MakeDir Directories="$(ArtifactsPath)" Condition=" !Exists('$(ArtifactsPath)') " />
@@ -43,9 +50,32 @@
     </MSBuild>
   </Target>
 
+  <Target Name="CodeAnalysis" DependsOnTargets="Build; _CopyBinariesToArtifactsDirectory">
+    <Warning Text="Code Analysis could not be performed because the code analysis tools were not found."
+             Condition=" !Exists('$(CodeAnalysisTargetsPath)') Or !Exists('$(CodeAnalysisPath)') " />
+    
+    <ItemGroup>
+      <ReferenceAssemblies Include="$(Root)packages\**\lib\**\*.dll" />
+      <ReferenceDirectories Include="%(ReferenceAssemblies.RootDir)%(ReferenceAssemblies.Directory)\" />
+    </ItemGroup>
+
+    <CodeAnalysis Assemblies="@(ProjectAssemblies)" 
+                  ToolPath="$(CodeAnalysisPath)"
+                  RuleSet="ScriptCs.ruleset" 
+                  RuleSetDirectories="$(CodeAnalysisRuleSetDirectories)"
+                  DependentAssemblyPaths="@(ReferenceDirectories)" 
+                  SearchGlobalAssemblyCache="false" 
+                  AdditionalOptions="/assemblyCompareMode:StrongNameIgnoringVersion"
+                  LogFile="$(ArtifactsPath)CodeAnalysisResults.xml" ForceOutput="true"
+                  FailOnMissingRules="true" IgnoreMissingIndirectReferences="false"
+                  Condition=" Exists('$(CodeAnalysisTargetsPath)') And Exists('$(CodeAnalysisPath)') ">
+      <Output ItemName="CodeAnalysisResults" TaskParameter="FilesWritten" />
+    </CodeAnalysis>
+  </Target>
+
   <Target Name="Test" DependsOnTargets="Build">
     <ItemGroup>
-       <TestAssemblies Include="$(Root)test\**\bin\$(Configuration)\**\*.Tests.dll;$(Root)test\**\bin\$(Configuration)\**\*.Tests.Acceptance.dll" />
+      <TestAssemblies Include="$(Root)test\**\bin\$(Configuration)\**\*.Tests.dll;$(Root)test\**\bin\$(Configuration)\**\*.Tests.Acceptance.dll" />
     </ItemGroup>
     
     <xunit Assemblies="@(TestAssemblies)" Xml="$(ArtifactsPath)TestResults.xml" />
@@ -78,8 +108,7 @@
     <ItemGroup>
       <NuGetProjects Include="$(Root)src\ScriptCs.Contracts\ScriptCs.Contracts.csproj" />
       <NuGetProjects Include="$(Root)src\ScriptCs.Core\ScriptCs.Core.csproj" />
-      <NuGetProjects Include="$(Root)src\ScriptCs.CSharp\ScriptCs.CSharp.csproj" />
-      <NuGetProjects Include="$(Root)src\ScriptCs.VisualBasic\ScriptCs.VisualBasic.csproj" />
+      <NuGetProjects Include="$(Root)src\ScriptCs.Engine.Roslyn\ScriptCs.Engine.Roslyn.csproj" />
       <NuGetProjects Include="$(Root)src\ScriptCs.Hosting\ScriptCs.Hosting.csproj" />
       <NuGetProjects Include="$(Root)src\ScriptCs.Engine.Mono\ScriptCs.Engine.Mono.csproj" />
     </ItemGroup>
@@ -113,5 +142,10 @@
     </ItemGroup>
     
     <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(ArtifactsPath)bin\" />
+  </Target>
+
+  <Target Name="_PublishCodeAnalysisResults" AfterTargets="CodeAnalysis" Condition=" '$(TeamCity)' == 'true' ">
+    <Message Text="##teamcity[importData type='FxCop' path='%(CodeAnalysisResults.FullPath)']" 
+             Condition=" Exists('%(CodeAnalysisResults.FullPath)') " />
   </Target>
 </Project>

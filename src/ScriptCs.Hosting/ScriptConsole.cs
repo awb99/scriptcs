@@ -1,16 +1,13 @@
 ﻿using System;
 using ScriptCs.Contracts;
-using Mono.Terminal;
 
 namespace ScriptCs.Hosting
 {
     public class ScriptConsole : IConsole
     {
-        LineEditor _editor;
-
         public ScriptConsole()
         {
-            _editor = new LineEditor ("scriptcs");
+            Console.CancelKeyPress += HandleCancelKeyPress;
         }
 
         public void Write(string value)
@@ -28,9 +25,9 @@ namespace ScriptCs.Hosting
             Console.WriteLine(value);
         }
 
-        public string ReadLine(string prompt)
+        public string ReadLine()
         {
-            return _editor.Edit (prompt, "");
+            return Console.ReadLine();
         }
 
         public void Clear()
@@ -41,12 +38,17 @@ namespace ScriptCs.Hosting
         public void Exit()
         {
             ResetColor();
-            Environment.Exit(0);
+            Console.CancelKeyPress -= HandleCancelKeyPress;
         }
 
         public void ResetColor()
         {
             Console.ResetColor();
+        }
+
+        private void HandleCancelKeyPress(object sender, ConsoleCancelEventArgs e)
+        {
+            ResetColor();
         }
 
         public ConsoleColor ForegroundColor

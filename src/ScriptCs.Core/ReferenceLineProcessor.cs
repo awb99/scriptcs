@@ -14,8 +14,6 @@ namespace ScriptCs
 
         public ReferenceLineProcessor(IFileSystem fileSystem)
         {
-            Guard.AgainstNullArgument("fileSystem", fileSystem);
-
             _fileSystem = fileSystem;
         }
 

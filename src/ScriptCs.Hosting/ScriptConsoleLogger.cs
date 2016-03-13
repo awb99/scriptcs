@@ -1,16 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using Common.Logging;
+using Common.Logging.Factory;
 using ScriptCs.Contracts;
 using LogLevel = ScriptCs.Contracts.LogLevel;
 
 namespace ScriptCs.Hosting
 {
-    [Obsolete("Support for Common.Logging types was deprecated in version 0.15.0 and will soon be removed.")]
-    public class ScriptConsoleLogger : Common.Logging.Factory.AbstractLogger
+    public class ScriptConsoleLogger : AbstractLogger
     {
         private readonly LogLevel _consoleLogLevel;
         private readonly IConsole _console;
-        private readonly Common.Logging.ILog _log;
+        private readonly ILog _log;
         private readonly Dictionary<Common.Logging.LogLevel, ConsoleColor> colors =
             new Dictionary<Common.Logging.LogLevel, ConsoleColor>
             {
@@ -22,7 +23,7 @@ namespace ScriptCs.Hosting
                 { Common.Logging.LogLevel.Trace, ConsoleColor.DarkMagenta },
             };
 
-        public ScriptConsoleLogger(LogLevel consoleLogLevel, IConsole console, Common.Logging.ILog log)
+        public ScriptConsoleLogger(LogLevel consoleLogLevel, IConsole console, ILog log)
         {
             Guard.AgainstNullArgument("console", console);
             Guard.AgainstNullArgument("log", log);

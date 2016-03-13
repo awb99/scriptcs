@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Versioning;
+using Common.Logging;
 using Moq;
 using ScriptCs.Contracts;
 using ScriptCs.ReplCommands;
@@ -20,7 +21,7 @@ namespace ScriptCs.Tests.ReplCommands
                 var cmd = new InstallCommand(
                     new Mock<IPackageInstaller>().Object,
                     new Mock<IPackageAssemblyResolver>().Object,
-                    new TestLogProvider(),
+                    new Mock<ILog>().Object,
                     new Mock<IInstallationProvider>().Object);
 
                 // assert
@@ -32,27 +33,28 @@ namespace ScriptCs.Tests.ReplCommands
         {
             private readonly Mock<IPackageInstaller> _packageInstaller;
             private readonly Mock<IPackageAssemblyResolver> _packageAssemblyResolver;
-            private readonly TestLogProvider _logProvider = new TestLogProvider();
+            private readonly Mock<ILog> _logger;
             private readonly Mock<IInstallationProvider> _installationProvider;
-            private readonly Mock<IRepl> _repl;
+            private Mock<IScriptExecutor> _executor;
 
             public ExecuteMethod()
             {
                 _packageInstaller = new Mock<IPackageInstaller>();
                 _packageAssemblyResolver = new Mock<IPackageAssemblyResolver>();
+                _logger = new Mock<ILog>();
                 _installationProvider = new Mock<IInstallationProvider>();
-                _repl = new Mock<IRepl>();
+                _executor = new Mock<IScriptExecutor>();
 
                 var fs = new Mock<IFileSystem>();
                 fs.Setup(x => x.CurrentDirectory).Returns(@"c:\dir");
 
-                _repl.SetupGet(x => x.FileSystem).Returns(fs.Object);
-                _repl.SetupGet(x => x.References).Returns(new AssemblyReferences());
+                _executor.SetupGet(x => x.FileSystem).Returns(fs.Object);
+                _executor.SetupGet(x => x.References).Returns(new AssemblyReferences());
             }
 
             private InstallCommand GetCommand()
             {
-                return new InstallCommand(_packageInstaller.Object, _packageAssemblyResolver.Object, _logProvider, _installationProvider.Object);
+                return new InstallCommand(_packageInstaller.Object, _packageAssemblyResolver.Object, _logger.Object, _installationProvider.Object);
             }
 
             [Fact]
@@ -62,7 +64,7 @@ namespace ScriptCs.Tests.ReplCommands
                 var cmd = GetCommand();
 
                 // act
-                var result = cmd.Execute(_repl.Object, null);
+                var result = cmd.Execute(_executor.Object, null);
 
                 // assert
                 Assert.Null(result);
@@ -75,7 +77,7 @@ namespace ScriptCs.Tests.ReplCommands
                 var cmd = GetCommand();
 
                 // act
-                cmd.Execute(_repl.Object, new[] { "scriptcs" });
+                cmd.Execute(_executor.Object, new[] { "scriptcs" });
 
                 // assert
                 _packageInstaller.Verify(
@@ -91,7 +93,7 @@ namespace ScriptCs.Tests.ReplCommands
                 var cmd = GetCommand();
 
                 // act
-                cmd.Execute(_repl.Object, new[] { "scriptcs", "0.9" });
+                cmd.Execute(_executor.Object, new[] { "scriptcs", "0.9" });
 
                 // assert
                 var packageRef = new PackageReference("scriptcs", new FrameworkName(".NETFramework,Version=v4.0"), "0.9");
@@ -111,7 +113,7 @@ namespace ScriptCs.Tests.ReplCommands
                 var cmd = GetCommand();
 
                 // act
-                cmd.Execute(_repl.Object, new[] { "scriptcs", "0.9", preReleaseFlag });
+                cmd.Execute(_executor.Object, new[] { "scriptcs", "0.9", preReleaseFlag });
 
                 // assert
                 _packageInstaller.Verify(
@@ -125,7 +127,7 @@ namespace ScriptCs.Tests.ReplCommands
                 var cmd = GetCommand();
 
                 // act
-                cmd.Execute(_repl.Object, new[] { "scriptcs" });
+                cmd.Execute(_executor.Object, new[] { "scriptcs" });
 
                 // assert
                 _packageAssemblyResolver.Verify(x => x.SavePackages(), Times.Once);
@@ -141,10 +143,10 @@ namespace ScriptCs.Tests.ReplCommands
                 var cmd = GetCommand();
 
                 // act
-                cmd.Execute(_repl.Object, new[] { "scriptcs" });
+                cmd.Execute(_executor.Object, new[] { "scriptcs" });
 
                 // assert
-                _repl.Verify(x => x.AddReferences(dummyAssemblies), Times.Once);
+                _executor.Verify(x => x.AddReferences(dummyAssemblies), Times.Once);
             }
         }
     }

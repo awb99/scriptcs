@@ -7,14 +7,9 @@ namespace ScriptCs.Contracts
         string BaseDirectory { get; set; }
 
         string CacheDirectory { get; set; }
-
+        
         string FileName { get; set; }
-
-        ScriptResult Execute(
-            string code,
-            string[] scriptArgs,
-            AssemblyReferences references,
-            IEnumerable<string> namespaces,
-            ScriptPackSession scriptPackSession);
+        
+        ScriptResult Execute(string code, string[] scriptArgs, AssemblyReferences references, IEnumerable<string> namespaces, ScriptPackSession scriptPackSession);
     }
 }

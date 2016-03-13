@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Autofac;
+using Common.Logging;
 using Moq;
 using ScriptCs.Contracts;
-using ScriptCs.Tests;
 using Should;
 using Xunit;
 
@@ -13,46 +13,33 @@ namespace ScriptCs.Hosting.Tests
 {
     public class RuntimeServicesTests
     {
-        public class TheContainerProperty
+        public class TheCreateContainerMethod
         {
-            private readonly Mock<IConsole> _mockConsole = new Mock<IConsole>();
-            private readonly Type _scriptExecutorType;
-            private readonly Type _replType;
-            private readonly Type _scriptEngineType;
-            private readonly TestLogProvider _logProvider = new TestLogProvider();
-            private readonly IDictionary<Type, object> _overrides = new Dictionary<Type, object>();
-            private readonly RuntimeServices _runtimeServices;
+            private Mock<IConsole> _mockConsole = new Mock<IConsole>();
+            private Type _scriptExecutorType = null;
+            private Type _scriptEngineType = null;
+            private Mock<ILog> _mockLogger = new Mock<ILog>();
+            private IDictionary<Type, object> _overrides = new Dictionary<Type, object>();
+            private RuntimeServices _runtimeServices = null;
 
-            public TheContainerProperty()
+            public TheCreateContainerMethod()
             {
                 _overrides[typeof(ILineProcessor)] = new List<Type>();
                 var mockScriptExecutorType = new Mock<IScriptExecutor>();
                 _scriptExecutorType = mockScriptExecutorType.Object.GetType();
 
-                var mockReplType = new Mock<IRepl>();
-                _replType = mockReplType.Object.GetType();
-
                 var mockScriptEngineType = new Mock<IScriptEngine>();
                 _scriptEngineType = mockScriptEngineType.Object.GetType();
 
-                var initializationServices = new InitializationServices(_logProvider, _overrides);
-                _runtimeServices = new RuntimeServices(
-                    _logProvider,
-                    _overrides,
-                    _mockConsole.Object,
-                    _scriptEngineType,
-                    _scriptExecutorType,
-                    _replType,
-                    false,
-                    initializationServices,
-                    "script.csx");
+                var initializationServices = new InitializationServices(_mockLogger.Object, _overrides);
+                _runtimeServices = new RuntimeServices(_mockLogger.Object, _overrides, _mockConsole.Object, _scriptEngineType, _scriptExecutorType, false, initializationServices, "script.csx");
             }
 
             [Fact]
             public void ShouldRegisterTheLoggerInstance()
             {
-                var logProvider = _runtimeServices.Container.Resolve<ILogProvider>();
-                logProvider.ShouldEqual(_logProvider);
+                var logger = _runtimeServices.Container.Resolve<ILog>();
+                logger.ShouldEqual(_mockLogger.Object);
             }
 
             [Fact]
@@ -152,11 +139,9 @@ namespace ScriptCs.Hosting.Tests
             {
                 var processors = _runtimeServices.Container.Resolve<IEnumerable<ILineProcessor>>();
                 processors.ShouldNotBeNull();
-                processors = processors.ToArray();
                 processors.Where(p => p is IUsingLineProcessor).ShouldNotBeEmpty();
                 processors.Where(p => p is IReferenceLineProcessor).ShouldNotBeEmpty();
                 processors.Where(p => p is ILoadLineProcessor).ShouldNotBeEmpty();
-                processors.Where(p => p is IShebangLineProcessor).ShouldNotBeEmpty();
             }
 
             [Fact]
@@ -271,102 +256,42 @@ namespace ScriptCs.Hosting.Tests
             [Fact]
             public void ShouldLogOnDebugAnAssemblyLoadFailure()
             {
-                // arrange
-                var mockResolver = new Mock<IAssemblyResolver>();
-                mockResolver.Setup(a => a.GetAssemblyPaths(It.IsAny<string>(), false)).Returns(new[] { "/foo.dll" });
-                _overrides[typeof(IAssemblyResolver)] = mockResolver.Object;
-
-                var mockAssemblyUtility = new Mock<IAssemblyUtility>();
-                mockAssemblyUtility.Setup(a => a.IsManagedAssembly(It.IsAny<string>())).Returns(true);
-                _overrides[typeof(IAssemblyUtility)] = mockAssemblyUtility.Object;
-
-                var initializationServices = new InitializationServices(_logProvider, _overrides);
-                var runtimeServices = new RuntimeServices(
-                    _logProvider,
-                    _overrides,
-                    _mockConsole.Object,
-                    _scriptEngineType,
-                    _scriptExecutorType,
-                    _replType,
-                    true,
-                    initializationServices,
-                    "script.csx");
-
-                // act
+                var mock = new Mock<IAssemblyResolver>();
+                mock.Setup(a => a.GetAssemblyPaths(It.IsAny<string>(), false)).Returns(new[] { "/foo.dll" });
+                _overrides[typeof(IAssemblyResolver)] = mock.Object;
+                var initializationServices = new InitializationServices(_mockLogger.Object, _overrides);
+                var runtimeServices = new RuntimeServices(_mockLogger.Object, _overrides, _mockConsole.Object, _scriptEngineType, _scriptExecutorType, true, initializationServices, "script.csx");
                 var container = runtimeServices.Container;
-
-                // assert
-                _logProvider.Output.ShouldContain(
-                    "DEBUG: Failure loading assembly: /foo.dll. Exception: Could not load file or assembly 'foo.dll' or one of its dependencies. The system cannot find the file specified.");
+                _mockLogger.Verify(l => l.DebugFormat("Failure loading assembly: {0}. Exception: {1}", "/foo.dll", It.IsAny<string>()));
             }
 
             [Fact]
             public void ShouldLogAGeneralWarningOnAnAssemblyLoadFailureWhenRunningScript()
             {
-                // arrange
-                var mockResolver = new Mock<IAssemblyResolver>();
-                mockResolver.Setup(a => a.GetAssemblyPaths(It.IsAny<string>(), false)).Returns(new[] { "/foo.dll" });
-                _overrides[typeof(IAssemblyResolver)] = mockResolver.Object;
-
-                var mockAssemblyUtility = new Mock<IAssemblyUtility>();
-                mockAssemblyUtility.Setup(a => a.IsManagedAssembly(It.IsAny<string>())).Returns(true);
-                _overrides[typeof(IAssemblyUtility)] = mockAssemblyUtility.Object;
-
-                var initializationServices = new InitializationServices(_logProvider, _overrides);
-                var runtimeServices = new RuntimeServices(
-                    _logProvider,
-                    _overrides,
-                    _mockConsole.Object,
-                    _scriptEngineType,
-                    _scriptExecutorType,
-                    _replType,
-                    true,
-                    initializationServices,
-                    "script.csx");
-
-                // act
+                var mock = new Mock<IAssemblyResolver>();
+                mock.Setup(a => a.GetAssemblyPaths(It.IsAny<string>(), false)).Returns(new[] { "/foo.dll" });
+                _overrides[typeof(IAssemblyResolver)] = mock.Object;
+                var initializationServices = new InitializationServices(_mockLogger.Object, _overrides);
+                var runtimeServices = new RuntimeServices(_mockLogger.Object, _overrides, _mockConsole.Object, _scriptEngineType, _scriptExecutorType, true, initializationServices, "script.csx");
                 var container = runtimeServices.Container;
-
-                // assert
-                _logProvider.Output.ShouldContain(
-                    "WARN: Some assemblies failed to load. Launch with '-loglevel debug' to see the details");
+                _mockLogger.Verify(l => l.Warn("Some assemblies failed to load. Launch with '-loglevel debug' to see the details"));
             }
 
             [Fact]
             public void ShouldLogAGeneralWarningOnAnAssemblyLoadFailureWhenRunningInRepl()
             {
-                // arrange
-                var mockResolver = new Mock<IAssemblyResolver>();
-                mockResolver.Setup(a => a.GetAssemblyPaths(It.IsAny<string>(), false)).Returns(new[] { "/foo.dll" });
-                _overrides[typeof(IAssemblyResolver)] = mockResolver.Object;
-
-                var mockAssemblyUtility = new Mock<IAssemblyUtility>();
-                mockAssemblyUtility.Setup(a => a.IsManagedAssembly(It.IsAny<string>())).Returns(true);
-                _overrides[typeof (IAssemblyUtility)] = mockAssemblyUtility.Object;
-
-                var initializationServices = new InitializationServices(_logProvider, _overrides);
-                var runtimeServices = new RuntimeServices(
-                    _logProvider,
-                    _overrides,
-                    _mockConsole.Object,
-                    _scriptEngineType,
-                    _scriptExecutorType,
-                    _replType, true,
-                    initializationServices,
-                    "");
-
-                // act
+                var mock = new Mock<IAssemblyResolver>();
+                mock.Setup(a => a.GetAssemblyPaths(It.IsAny<string>(), false)).Returns(new[] { "/foo.dll" });
+                _overrides[typeof(IAssemblyResolver)] = mock.Object;
+                var initializationServices = new InitializationServices(_mockLogger.Object, _overrides);
+                var runtimeServices = new RuntimeServices(_mockLogger.Object, _overrides, _mockConsole.Object, _scriptEngineType, _scriptExecutorType, true, initializationServices, "");
                 var container = runtimeServices.Container;
-
-                // assert
-                _logProvider.Output.ShouldContain(
-                    "WARN: Some assemblies failed to load. Launch with '-repl -loglevel debug' to see the details");
+                _mockLogger.Verify(l => l.Warn("Some assemblies failed to load. Launch with '-repl -loglevel debug' to see the details"));
             }
 
             [Fact]
             public void ShouldResolveAssembliesBasedOnScriptWorkingDirectory()
             {
-                // arrange
                 var fsmock = new Mock<IFileSystem>();
                 fsmock.Setup(a => a.GetWorkingDirectory(It.IsAny<string>())).Returns("c:/scripts");
 
@@ -376,51 +301,31 @@ namespace ScriptCs.Hosting.Tests
                 _overrides[typeof(IFileSystem)] = fsmock.Object;
                 _overrides[typeof(IAssemblyResolver)] = resolvermock.Object;
 
-                var initializationServices = new InitializationServices(_logProvider, _overrides);
-                var runtimeServices = new RuntimeServices(
-                    _logProvider,
-                    _overrides,
-                    _mockConsole.Object,
-                    _scriptEngineType,
-                    _scriptExecutorType,
-                    _replType,
-                    true,
-                    initializationServices,
-                    "c:/scriptcs/script.csx");
-
-                // act
+                var initializationServices = new InitializationServices(_mockLogger.Object, _overrides);
+                var runtimeServices = new RuntimeServices(_mockLogger.Object, _overrides, _mockConsole.Object, _scriptEngineType, _scriptExecutorType, true, initializationServices, "c:/scriptcs/script.csx");
                 var container = runtimeServices.Container;
 
-                // assert
                 resolvermock.Verify(x => x.GetAssemblyPaths("c:/scripts", false), Times.Exactly(1));
             }
 
             private class MockFileSystem : IFileSystem
             {
-                public IEnumerable<string> EnumerateFiles(
-                    string dir, string search, SearchOption searchOption = SearchOption.AllDirectories)
+                public IEnumerable<string> EnumerateFiles(string dir, string search, System.IO.SearchOption searchOption = SearchOption.AllDirectories)
                 {
                     throw new NotImplementedException();
                 }
 
-                public IEnumerable<string> EnumerateDirectories(
-                    string dir, string searchPattern, SearchOption searchOption = SearchOption.AllDirectories)
+                public IEnumerable<string> EnumerateDirectories(string dir, string searchPattern, System.IO.SearchOption searchOption = SearchOption.AllDirectories)
                 {
                     throw new NotImplementedException();
                 }
 
-                public IEnumerable<string> EnumerateFilesAndDirectories(
-                    string dir, string searchPattern, SearchOption searchOption = SearchOption.AllDirectories)
+                public IEnumerable<string> EnumerateFilesAndDirectories(string dir, string searchPattern, System.IO.SearchOption searchOption = SearchOption.AllDirectories)
                 {
                     throw new NotImplementedException();
                 }
 
                 public void Copy(string source, string dest, bool overwrite)
-                {
-                    throw new NotImplementedException();
-                }
-
-                public void CopyDirectory(string source, string dest, bool overwrite)
                 {
                     throw new NotImplementedException();
                 }
@@ -486,11 +391,6 @@ namespace ScriptCs.Hosting.Tests
                     throw new NotImplementedException();
                 }
 
-                public void MoveDirectory(string source, string dest)
-                {
-                    throw new NotImplementedException();
-                }
-
                 public bool FileExists(string path)
                 {
                     throw new NotImplementedException();
@@ -511,7 +411,7 @@ namespace ScriptCs.Hosting.Tests
                     throw new NotImplementedException();
                 }
 
-                public Stream CreateFileStream(string filePath, FileMode mode)
+                public System.IO.Stream CreateFileStream(string filePath, System.IO.FileMode mode)
                 {
                     throw new NotImplementedException();
                 }
@@ -521,7 +421,7 @@ namespace ScriptCs.Hosting.Tests
                     throw new NotImplementedException();
                 }
 
-                public string GlobalFolder
+                public string ModulesFolder
                 {
                     get { throw new NotImplementedException(); }
                 }
@@ -552,16 +452,6 @@ namespace ScriptCs.Hosting.Tests
                 }
 
                 public string NugetFile
-                {
-                    get { throw new NotImplementedException(); }
-                }
-
-                public string GlobalOptsFile
-                {
-                    get { throw new NotImplementedException(); }
-                }
-
-                public string PackageScriptsFile
                 {
                     get { throw new NotImplementedException(); }
                 }

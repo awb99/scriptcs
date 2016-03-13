@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Common.Logging;
 using Moq;
 using Ploeh.AutoFixture.Xunit;
 using ScriptCs.Contracts;
@@ -27,17 +28,14 @@ namespace ScriptCs.Tests
         {
             [Theory, ScriptCsAutoData]
             public void ShouldSubscribeToTheResolveEvent(
-                TestLogProvider logProvider,
+                ILog logger,
                 IFileSystem fileSystem,
                 IAssemblyResolver assemblyResolver,
-                [Frozen] Mock<IAssemblyUtility> assemblyUtilityMock)
+                IAssemblyUtility assemblyUtility)
             {
                 bool called = false;
 
-                assemblyUtilityMock.Setup(a => a.IsManagedAssembly(It.IsAny<string>())).Returns(true);
-                var assemblyUtility = assemblyUtilityMock.Object;
-
-                new AppDomainAssemblyResolver(logProvider, fileSystem, assemblyResolver,
+                new AppDomainAssemblyResolver(logger, fileSystem, assemblyResolver,
                     assemblyUtility,
                     resolveHandler: (o, r) =>
                     {
@@ -76,7 +74,7 @@ namespace ScriptCs.Tests
                 var modulesFolder = "c:\test";
                 var dll = "c:\test\test.dll";
                 assemblyResolverMock.Setup(a => a.GetAssemblyPaths(modulesFolder, true)).Returns(new[] { dll });
-                fileSystemMock.SetupGet(fs => fs.GlobalFolder).Returns(modulesFolder);
+                fileSystemMock.SetupGet(fs => fs.ModulesFolder).Returns(modulesFolder);
                 resolverMock.Setup(r => r.AddAssemblyPaths(It.IsAny<IEnumerable<string>>()));
                 resolverMock.Object.Initialize();
                 resolverMock.Verify(r => r.AddAssemblyPaths(It.Is<IEnumerable<string>>(paths => paths.Contains(dll))));
@@ -107,13 +105,12 @@ namespace ScriptCs.Tests
             {
                 var assemblyUtilityMock = new Mock<IAssemblyUtility>();
                 var assemblyInfoMapMock = new Mock<IDictionary<string, AssemblyInfo>>();
-                assemblyUtilityMock.Setup(u => u.IsManagedAssembly(It.IsAny<string>())).Returns(true);
                 assemblyUtilityMock.Setup(u => u.GetAssemblyName(_info.Path)).Returns(_assemblyName);
                 AssemblyInfo foundInfo = null;
                 assemblyInfoMapMock.Setup(m => m.TryGetValue(It.IsAny<string>(), out foundInfo)).Returns(false);
 
                 var resolver = new AppDomainAssemblyResolver(
-                    new TestLogProvider(),
+                    Mock.Of<ILog>(),
                     Mock.Of<IFileSystem>(),
                     Mock.Of<IAssemblyResolver>(),
                     assemblyUtilityMock.Object,
@@ -131,7 +128,6 @@ namespace ScriptCs.Tests
                 [Frozen] IDictionary<string, AssemblyInfo> assemblyInfoMap,
                 AppDomainAssemblyResolver resolver)
             {
-                assemblyUtilityMock.Setup(u => u.IsManagedAssembly(It.IsAny<string>())).Returns(true);
                 assemblyUtilityMock.Setup(u => u.GetAssemblyName(_info.Path)).Returns(_assemblyName);
                 resolver.AddAssemblyPaths(new[] { _info.Path });
                 assemblyInfoMap.ContainsKey(_assemblyName.Name).ShouldBeTrue();
@@ -143,7 +139,6 @@ namespace ScriptCs.Tests
                 [Frozen] IDictionary<string, AssemblyInfo> assemblyInfoMap,
                 AppDomainAssemblyResolver resolver)
             {
-                assemblyUtilityMock.Setup(u => u.IsManagedAssembly(It.IsAny<string>())).Returns(true);
                 assemblyUtilityMock.Setup(u => u.GetAssemblyName(_info.Path)).Returns(_assemblyName);
                 _info.Version = new Version(0, 0);
                 resolver.AddAssemblyPaths(new[] { _info.Path });
@@ -154,32 +149,30 @@ namespace ScriptCs.Tests
             [Theory, ScriptCsAutoData]
             public void ShouldLogWhenTheAssemblyIsMapped(
                 [Frozen] Mock<IAssemblyUtility> assemblyUtilityMock,
-                [Frozen] TestLogProvider logProvider,
+                [Frozen] Mock<ILog> loggerMock,
                 AppDomainAssemblyResolver resolver)
             {
-                assemblyUtilityMock.Setup(u => u.IsManagedAssembly(It.IsAny<string>())).Returns(true);
                 assemblyUtilityMock.Setup(u => u.GetAssemblyName(_info.Path)).Returns(_assemblyName);
                 resolver.AddAssemblyPaths(new[] { _info.Path });
-                logProvider.Output.ShouldContain(
-                    "DEBUG: Mapping Assembly " + _assemblyName.Name + " to version:" + _assemblyName.Version);
+                loggerMock.Verify(
+                    l => l.DebugFormat("Mapping Assembly {0} to version:{1}", _assemblyName.Name, _assemblyName.Version));
             }
 
             [Theory, ScriptCsAutoData]
             public void ShouldWarnIfTheAssemblyVersionIsGreaterThanTheMappedAssemblyAndItWasLoaded(
                 [Frozen] Mock<IAssemblyUtility> assemblyUtilityMock,
                 [Frozen] IDictionary<string, AssemblyInfo> assemblyInfoMap,
-                [Frozen] TestLogProvider logProvider,
+                [Frozen] Mock<ILog> loggerMock,
                 AppDomainAssemblyResolver resolver)
             {
                 _info.Version = new Version(0, 0);
-                assemblyUtilityMock.Setup(u => u.IsManagedAssembly(It.IsAny<string>())).Returns(true);
                 assemblyUtilityMock.Setup(u => u.GetAssemblyName(_info.Path)).Returns(_assemblyName);
                 _info.Assembly = typeof(Mock).Assembly;
                 assemblyInfoMap[_assemblyName.Name] = _info;
                 resolver.AddAssemblyPaths(new[] { _info.Path });
-                logProvider.Output.ShouldContain(
-                    "WARN: Conflict: Assembly " + _info.Path + " with version " + _assemblyName.Version +
-                    " cannot be added as it has already been resolved");
+
+                loggerMock.Verify(
+                    l => l.WarnFormat("Conflict: Assembly {0} with version {1} cannot be added as it has already been resolved", _info.Path, _assemblyName.Version));
             }
 
             [Theory, ScriptCsAutoData]
@@ -224,7 +217,7 @@ namespace ScriptCs.Tests
                 assemblyInfoMapMock.Setup(m => m.TryGetValue(It.IsAny<string>(), out foundInfo)).Returns(false);
 
                 var resolver = new AppDomainAssemblyResolver(
-                    new TestLogProvider(),
+                    Mock.Of<ILog>(),
                     Mock.Of<IFileSystem>(),
                     Mock.Of<IAssemblyResolver>(),
                     assemblyUtilityMock.Object,
@@ -252,7 +245,7 @@ namespace ScriptCs.Tests
             [Theory, ScriptCsAutoData]
             public void ShouldLogTheAssemblyThatIsBeingResolved(
                 [Frozen] Mock<IAssemblyUtility> assemblyUtilityMock,
-                [Frozen] TestLogProvider logProvider,
+                [Frozen] Mock<ILog> loggerMock,
                 [Frozen] IDictionary<string, AssemblyInfo> assemblyInfoMap,
                 AppDomainAssemblyResolver resolver)
             {
@@ -261,8 +254,8 @@ namespace ScriptCs.Tests
                 assemblyInfoMap[_assemblyName.Name] = _info;
 
                 resolver.AssemblyResolve(this, new ResolveEventArgs(_assemblyName.Name));
-                logProvider.Output.ShouldContain(
-                    "DEBUG: Resolving from: " + _assemblyName.Name + " to: " + _assemblyName.ToString());
+                loggerMock.Verify(
+                    l => l.DebugFormat("Resolving from: {0} to: {1}", _assemblyName.Name, It.Is<AssemblyName>(n => n.ToString().Equals(_assemblyName.ToString()))));
             }
 
             [Theory, ScriptCsAutoData]

@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Policy;
+using System.Reflection;
 using Moq;
-using Moq.Protected;
 using Ploeh.AutoFixture.Xunit;
 using ScriptCs.Contracts;
 using Should;
@@ -18,61 +17,70 @@ namespace ScriptCs.Tests
         public class TheInitializeMethod
         {
             [Theory, ScriptCsAutoData]
-            public void ShouldSetEngineBaseDirectoryBasedOnCurrentDirectoryAndBinFolder(
-                [Frozen] Mock<IScriptEngine> scriptEngine,
-                [Frozen] Mock<IFileSystem> fileSystem,
-                [Frozen] Mock<IFilePreProcessor> preProcessor,
-                ScriptExecutor scriptExecutor)
+            public void ShouldSetEngineBaseDirectoryBasedOnCurrentDirectoryAndBinFolder([Frozen] Mock<IScriptEngine> scriptEngine, [Frozen] Mock<IFileSystem> fileSystem,
+                                                                                                                                     [Frozen] Mock<IFilePreProcessor> preProcessor, ScriptExecutor scriptExecutor)
             {
                 // arrange
                 preProcessor.Setup(x => x.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult());
+
+                var currentDirectory = @"C:\";
+                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>())).Returns(currentDirectory);
+                fileSystem.Setup(fs => fs.CurrentDirectory).Returns(currentDirectory);
+
                 scriptEngine.SetupProperty(e => e.BaseDirectory);
 
+                var paths = new string[0];
+                IEnumerable<IScriptPack> recipes = Enumerable.Empty<IScriptPack>();
+
                 // act
-                scriptExecutor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
+                scriptExecutor.Initialize(paths, recipes);
 
                 // assert
-                scriptEngine.Object.BaseDirectory.ShouldEqual(
-                    Path.Combine(fileSystem.Object.CurrentDirectory, "scriptcs_bin"));
+                string expectedBaseDirectory = Path.Combine(currentDirectory, "bin");
+                expectedBaseDirectory.ShouldEqual(scriptEngine.Object.BaseDirectory);
             }
 
             [Theory, ScriptCsAutoData]
-            public void ShouldSetEngineDllCacheDirectoryBasedOnCurrentDirectory(
-                [Frozen] Mock<IScriptEngine> scriptEngine,
-                [Frozen] Mock<IFileSystem> fileSystem,
-                [Frozen] Mock<IFilePreProcessor> preProcessor,
-                ScriptExecutor scriptExecutor)
+            public void ShouldSetEngineDllCacheDirectoryBasedOnCurrentDirectory([Frozen] Mock<IScriptEngine> scriptEngine, [Frozen] Mock<IFileSystem> fileSystem,
+                                                                                                                                     [Frozen] Mock<IFilePreProcessor> preProcessor, ScriptExecutor scriptExecutor)
             {
                 // arrange
                 preProcessor.Setup(x => x.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult());
+
+                var currentDirectory = @"C:\";
+                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>())).Returns(currentDirectory);
+                fileSystem.Setup(fs => fs.CurrentDirectory).Returns(currentDirectory);
+
                 scriptEngine.SetupProperty(e => e.CacheDirectory);
 
+                var paths = new string[0];
+                IEnumerable<IScriptPack> recipes = Enumerable.Empty<IScriptPack>();
+
                 // act
-                scriptExecutor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
+                scriptExecutor.Initialize(paths, recipes);
 
                 // assert
-                scriptEngine.Object.CacheDirectory.ShouldEqual(
-                    Path.Combine(fileSystem.Object.CurrentDirectory, ".scriptcs_cache"));
+                string expectedCacheDirectory = Path.Combine(currentDirectory, ".cache");
+                expectedCacheDirectory.ShouldEqual(scriptEngine.Object.CacheDirectory);
             }
 
             [Theory, ScriptCsAutoData]
-            public void ShouldInitializeScriptPacks(
-                [Frozen] Mock<IFilePreProcessor> preProcessor,
-                [Frozen] Mock<IScriptPack> scriptPack,
-                ScriptExecutor scriptExecutor)
+            public void ShouldInitializeScriptPacks([Frozen] Mock<IFilePreProcessor> preProcessor, [Frozen] Mock<IFileSystem> fileSystem,
+                                                                     [Frozen] Mock<IScriptPack> scriptPack1, ScriptExecutor scriptExecutor)
             {
-                // arrange
-                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>()))
-                    .Returns(new FilePreProcessorResult { Code = "var a = 0;" });
+                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>())).Returns(@"c:\my_script");
+                fileSystem.Setup(f => f.CurrentDirectory).Returns(@"c:\my_script");
 
-                scriptPack.Setup(p => p.Initialize(It.IsAny<IScriptPackSession>()));
-                scriptPack.Setup(p => p.GetContext()).Returns(Mock.Of<IScriptPackContext>());
+                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult { Code = "var a = 0;" });
+
+                scriptPack1.Setup(p => p.Initialize(It.IsAny<IScriptPackSession>()));
+                scriptPack1.Setup(p => p.GetContext()).Returns(Mock.Of<IScriptPackContext>());
 
                 // act
-                scriptExecutor.Initialize(Enumerable.Empty<string>(), new[] { scriptPack.Object });
+                scriptExecutor.Initialize(Enumerable.Empty<string>(), new[] { scriptPack1.Object });
 
                 // assert
-                scriptPack.Verify(p => p.Initialize(It.IsAny<IScriptPackSession>()));
+                scriptPack1.Verify(p => p.Initialize(It.IsAny<IScriptPackSession>()));
             }
         }
 
@@ -81,303 +89,32 @@ namespace ScriptCs.Tests
             [Theory, ScriptCsAutoData]
             public void ShouldTerminateScriptPacksWhenTerminateIsCalled(
                 [Frozen] Mock<IFilePreProcessor> preProcessor,
-                [Frozen] Mock<IScriptPack> scriptPack,
+                [Frozen] Mock<IFileSystem> fileSystem,
+                [Frozen] Mock<IScriptPack> scriptPack1,
                 ScriptExecutor executor)
             {
-                // arrange
-                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>()))
-                    .Returns(new FilePreProcessorResult { Code = "var a = 0;" });
+                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>())).Returns(@"c:\my_script");
+                fileSystem.Setup(f => f.CurrentDirectory).Returns(@"c:\my_script");
 
-                scriptPack.Setup(p => p.Initialize(It.IsAny<IScriptPackSession>()));
-                scriptPack.Setup(p => p.GetContext()).Returns(Mock.Of<IScriptPackContext>());
-                scriptPack.Setup(p => p.Terminate());
+                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult { Code = "var a = 0;" });
 
-                executor.Initialize(Enumerable.Empty<string>(), new[] { scriptPack.Object });
-                executor.Execute("script.csx");
+                scriptPack1.Setup(p => p.Initialize(It.IsAny<IScriptPackSession>()));
+                scriptPack1.Setup(p => p.GetContext()).Returns(Mock.Of<IScriptPackContext>());
+                scriptPack1.Setup(p => p.Terminate());
 
                 // act
+                executor.Initialize(Enumerable.Empty<string>(), new[] { scriptPack1.Object });
+                executor.Execute("script.csx");
                 executor.Terminate();
 
                 // assert
-                scriptPack.Verify(p => p.Terminate());
-            }
-        }
-
-        public class TheEngineExecuteMethod
-        {
-            [Theory, ScriptCsAutoData]
-            public void ShouldAddReferenceToEachDestinationFile(
-                [Frozen] Mock<IScriptEngine> scriptEngine,
-                ScriptExecutor scriptExecutor)
-            {
-                // arrange
-                var defaultReferences = ScriptExecutor.DefaultReferences;
-
-                var currentDirectory = @"C:\";
-                var destinationFilePath1 = Path.Combine(currentDirectory, @"bin\fileName1.cs");
-                var destinationFilePath2 = Path.Combine(currentDirectory, @"bin\fileName2.cs");
-                var destinationFilePath3 = Path.Combine(currentDirectory, @"bin\fileName3.cs");
-                var destinationFilePath4 = Path.Combine(currentDirectory, @"bin\fileName4.cs");
-
-                var destPaths = new[]
-                {
-                    "System", 
-                    "System.Core",
-                    destinationFilePath1,
-                    destinationFilePath2,
-                    destinationFilePath3,
-                    destinationFilePath4,
-                };
-
-                scriptEngine.Setup(e => e.Execute(
-                    It.IsAny<string>(),
-                    It.IsAny<string[]>(),
-                    It.IsAny<AssemblyReferences>(),
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<ScriptPackSession>()));
-
-                scriptExecutor.AddReferences("a");
-                scriptExecutor.AddReferences(new[] { "a", "a", "b", "c", "d" });
-                scriptExecutor.AddReference<FactAttribute>();
-                scriptExecutor.AddReferences(typeof(TheInitializeMethod));
-                var explicitReferences = new[]
-                {
-                    "a",
-                    "b",
-                    "c",
-                    "d", 
-                    typeof(FactAttribute).Assembly.Location,
-                    typeof(TheInitializeMethod).Assembly.Location,
-                };
-
-                scriptExecutor.Initialize(destPaths, Enumerable.Empty<IScriptPack>());
-
-                // act
-                scriptExecutor.EngineExecute("", new string[] {}, new FilePreProcessorResult());
-
-                // assert
-                scriptEngine.Verify(
-                    e => e.Execute(
-                        It.IsAny<string>(),
-                        It.IsAny<string[]>(),
-                        It.Is<AssemblyReferences>(x => x.Paths
-                            .SequenceEqual(defaultReferences.Union(explicitReferences.Union(destPaths)))),
-                        It.IsAny<IEnumerable<string>>(),
-                        It.IsAny<ScriptPackSession>()),
-                    Times.Once());
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldExecuteScriptReturnedFromFileProcessorInScriptEngine(
-                [Frozen] Mock<IScriptEngine> scriptEngine,
-                ScriptExecutor scriptExecutor)
-            {
-                // arrange
-                var code = Guid.NewGuid().ToString();
-
-                scriptEngine.Setup(e => e.Execute(
-                    code, It.IsAny<string[]>(),
-                    It.IsAny<AssemblyReferences>(),
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<ScriptPackSession>()));
-
-                scriptExecutor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
-
-                // act
-                scriptExecutor.EngineExecute("", new string[] {}, new FilePreProcessorResult() {Code = code});
-
-                // assert
-
-                scriptEngine.Verify(
-                    s => s.Execute(
-                        code,
-                        It.IsAny<string[]>(),
-                        It.IsAny<AssemblyReferences>(),
-                        It.IsAny<IEnumerable<string>>(),
-                        It.IsAny<ScriptPackSession>()),
-                    Times.Once());
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldAddNamespacesFromScriptLibrary(
-                [Frozen] Mock<IScriptEngine> scriptEngine,
-                Mock<ScriptExecutor> scriptExecutor
-                )
-            {
-                scriptExecutor.Protected();
-                var result = new FilePreProcessorResult();
-                scriptExecutor.Setup(e => e.InjectScriptLibraries(It.IsAny<string>(), result, It.IsAny<IDictionary<string, object>>()))
-                    .Callback((string p, FilePreProcessorResult r, IDictionary<string, object> s) =>
-                    {
-                        r.Namespaces.Add("Foo.Bar");
-                    });
-
-                scriptEngine.Setup(e => e.Execute(
-                    It.IsAny<string>(),
-                    It.IsAny<string[]>(),
-                    It.IsAny<AssemblyReferences>(),
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<ScriptPackSession>()));
-
-
-                scriptExecutor.Object.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
-                scriptExecutor.Object.EngineExecute("", new string[] {}, result);
-
-                scriptEngine.Verify(
-                    e => e.Execute(
-                        It.IsAny<string>(),
-                        It.IsAny<string[]>(),
-                        It.IsAny<AssemblyReferences>(),
-                        It.Is<IEnumerable<string>>(x => x.Contains("Foo.Bar")),
-                        It.IsAny<ScriptPackSession>()),
-                    Times.Once());
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldAddReferencesFromScriptLibrary(
-                [Frozen] Mock<IScriptEngine> scriptEngine,
-                Mock<ScriptExecutor> scriptExecutor
-                )
-            {
-                scriptExecutor.Protected();
-                var result = new FilePreProcessorResult();
-                scriptExecutor.Setup(e => e.InjectScriptLibraries(It.IsAny<string>(), result, It.IsAny<IDictionary<string, object>>()))
-                    .Callback((string p, FilePreProcessorResult r, IDictionary<string, object> s) =>
-                    {
-                        r.References.Add("Foo.Bar");
-                    });
-
-                scriptEngine.Setup(e => e.Execute(
-                    It.IsAny<string>(),
-                    It.IsAny<string[]>(),
-                    It.IsAny<AssemblyReferences>(),
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<ScriptPackSession>()));
-
-
-                scriptExecutor.Object.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
-                scriptExecutor.Object.EngineExecute("", new string[] {}, result);
-
-                scriptEngine.Verify(
-                    e => e.Execute(
-                        It.IsAny<string>(),
-                        It.IsAny<string[]>(),
-                        It.Is<AssemblyReferences>(x => x.Paths.Contains("Foo.Bar")),
-                        It.IsAny<IEnumerable<string>>(),
-                        It.IsAny<ScriptPackSession>()),
-                    Times.Once());
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldAddNamespaces(
-                [Frozen] Mock<IScriptEngine> scriptEngine,
-                ScriptExecutor scriptExecutor)
-            {
-                scriptEngine.Setup(e => e.Execute(
-                    It.IsAny<string>(),
-                    It.IsAny<string[]>(),
-                    It.IsAny<AssemblyReferences>(),
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<ScriptPackSession>()));
-
-                scriptExecutor.ImportNamespaces("a");
-                scriptExecutor.ImportNamespaces(new[] { "a", "a", "b", "c", "d" }.ToArray());
-                scriptExecutor.ImportNamespace<FactAttribute>();
-                scriptExecutor.ImportNamespaces(typeof(TheInitializeMethod));
-                var explicitNamespaces = new[]
-                {
-                    "a",
-                    "b",
-                    "c",
-                    "d",
-                    typeof(FactAttribute).Namespace, 
-                    typeof(TheInitializeMethod).Namespace
-                };
-
-                scriptExecutor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
-
-                // act
-                scriptExecutor.EngineExecute("", new string[] {}, new FilePreProcessorResult());
-
-                // assert
-                scriptEngine.Verify(
-                    e => e.Execute(
-                        It.IsAny<string>(),
-                        It.IsAny<string[]>(),
-                        It.IsAny<AssemblyReferences>(),
-                        It.Is<IEnumerable<string>>(x =>
-                            x.SequenceEqual(ScriptExecutor.DefaultNamespaces.Union(explicitNamespaces))),
-                        It.IsAny<ScriptPackSession>()),
-                    Times.Once());
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldPassDefaultNamespacesToEngine(
-                [Frozen] Mock<IScriptEngine> engine,
-                ScriptExecutor executor)
-            {
-                // arrange
- 
-                executor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
-
-                // act
-                executor.EngineExecute("", new string[] {}, new FilePreProcessorResult());
-
-                // assert
-                engine.Verify(
-                    i => i.Execute(
-                        It.IsAny<string>(),
-                        It.IsAny<string[]>(),
-                        It.IsAny<AssemblyReferences>(),
-                        It.Is<IEnumerable<string>>(x => !x.Except(ScriptExecutor.DefaultNamespaces).Any()),
-                        It.IsAny<ScriptPackSession>()),
-                    Times.Exactly(1));
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldPassDefaultReferencesToEngine(
-                [Frozen] Mock<IScriptEngine> engine,
-                ScriptExecutor executor)
-            {
-                // arrange
- 
-                executor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
-
-                // act
-                executor.EngineExecute("", new string[] {}, new FilePreProcessorResult());
-
-                // assert
-                engine.Verify(
-                    i => i.Execute(
-                        It.IsAny<string>(),
-                        It.IsAny<string[]>(),
-                        It.Is<AssemblyReferences>(x =>
-                            !x.Paths.Except(ScriptExecutor.DefaultReferences).Any()),
-                        It.IsAny<IEnumerable<string>>(),
-                        It.IsAny<ScriptPackSession>()),
-                    Times.Exactly(1));
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldInvokeInjectScriptLibraries(Mock<ScriptExecutor> executor)
-            {
-                executor.Protected();
-                executor.Object.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>(), "");
-                executor.Setup(e => e.InjectScriptLibraries(
-                    It.IsAny<string>(), It.IsAny<FilePreProcessorResult>(), It.IsAny<IDictionary<string, object>>()));
-                
-                var result = new FilePreProcessorResult();
-
-                executor.Object.EngineExecute("", new string[] { }, result);
-               
-                executor.Verify(e => e.InjectScriptLibraries(
-                    It.IsAny<string>(), result, It.IsAny<IDictionary<string, object>>()));
+                scriptPack1.Verify(p => p.Terminate());
             }
         }
 
         public class TheExecuteMethod
         {
-            private readonly string _tempPath;
+            private string _tempPath;
 
             public TheExecuteMethod()
             {
@@ -385,218 +122,210 @@ namespace ScriptCs.Tests
             }
 
             [Theory, ScriptCsAutoData]
-            public void ShouldInvokeEngineExecute(
-                [Frozen] Mock<IFilePreProcessor> preProcessor,
-                Mock<ScriptExecutor> executor,
-                FilePreProcessorResult result
-            )
+            public void ConstructsAbsolutePathBeforePreProcessingFile([Frozen] Mock<IFilePreProcessor> preProcessor, [Frozen] Mock<IFileSystem> fileSystem, ScriptExecutor executor)
             {
-                executor.Protected();
-                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>())).Returns(result);
-                executor.Setup(
-                    e => e.EngineExecute(
-                        It.IsAny<string>(), 
-                        It.IsAny<string[]>(), 
-                        It.IsAny<FilePreProcessorResult>()));
-
-                var args = new string[] {};
-
-                executor.Object.Execute("", args);
-
-                executor.Verify(
-                    e => e.EngineExecute(
-                        "", 
-                        args, 
-                        result));
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ConstructsAbsolutePathBeforePreProcessingFile(
-                [Frozen] Mock<IFilePreProcessor> preProcessor,
-                [Frozen] Mock<IFileSystem> fileSystem,
-                ScriptExecutor executor)
-            {
-                // arrange
                 fileSystem.Setup(f => f.CurrentDirectory).Returns(Path.Combine(_tempPath, "my_script"));
-                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>()))
-                    .Returns(Path.Combine(_tempPath, "my_script"));
+                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>())).Returns(Path.Combine(_tempPath, "my_script"));
 
-                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>()))
-                    .Returns(new FilePreProcessorResult { Code = "var a = 0;" });
+                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult { Code = "var a = 0;" });
 
                 executor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
-
-                // act
                 executor.Execute("script.csx");
-
-                // assert
                 preProcessor.Verify(p => p.ProcessFile(
                     Path.Combine(_tempPath, "my_script", "script.csx")));
             }
 
             [Theory, ScriptCsAutoData]
-            public void DoNotChangePathIfAbsolute(
-                [Frozen] Mock<IFilePreProcessor> preProcessor,
-                [Frozen] Mock<IFileSystem> fileSystem,
-                ScriptExecutor executor)
+            public void DoNotChangePathIfAbsolute([Frozen] Mock<IFilePreProcessor> preProcessor, [Frozen] Mock<IFileSystem> fileSystem, ScriptExecutor executor)
             {
-                // arrange
-                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>()))
-                    .Returns(Path.Combine(_tempPath, "my_script"));
-
+                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>())).Returns(Path.Combine(_tempPath, "my_script"));
                 fileSystem.Setup(f => f.CurrentDirectory).Returns(Path.Combine(_tempPath, "my_script"));
 
-                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>()))
-                    .Returns(new FilePreProcessorResult { Code = "var a = 0;" });
+                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult { Code = "var a = 0;" });
 
                 executor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
-
-                // act
                 executor.Execute("script.csx");
 
-                // assert
                 preProcessor.Verify(p => p.ProcessFile(
                     Path.Combine(_tempPath, "my_script", "script.csx")));
             }
 
             [Theory, ScriptCsAutoData]
-            public void ShouldSetEngineFileName(
-                [Frozen] Mock<IScriptEngine> scriptEngine,
-                [Frozen] Mock<IFilePreProcessor> preProcessor,
-                ScriptExecutor scriptExecutor)
+            public void ShouldExecuteScriptReturnedFromFileProcessorInScriptEngineWhenExecuteIsInvoked([Frozen] Mock<IScriptEngine> scriptEngine, [Frozen] Mock<IFileSystem> fileSystem,
+                                                                                                                                     [Frozen] Mock<IFilePreProcessor> preProcessor, ScriptExecutor scriptExecutor)
             {
-                // arrange
-                scriptEngine.SetupProperty(e => e.FileName);
-                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult());
-                scriptExecutor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
+                string code = Guid.NewGuid().ToString();
+
+                var currentDirectory = @"C:\";
+                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>())).Returns(currentDirectory);
+                fileSystem.Setup(fs => fs.CurrentDirectory).Returns(currentDirectory);
+
                 var scriptName = "script.csx";
+                var paths = new string[0];
+                var recipes = Enumerable.Empty<IScriptPack>();
+
+                preProcessor.Setup(fs => fs.ProcessFile(Path.Combine(currentDirectory, scriptName))).Returns(new FilePreProcessorResult { Code = code }).Verifiable();
+                scriptEngine.Setup(e => e.Execute(code, It.IsAny<string[]>(), It.IsAny<AssemblyReferences>(), It.IsAny<IEnumerable<string>>(), It.IsAny<ScriptPackSession>()));
 
                 // act
+                scriptExecutor.Initialize(paths, recipes);
                 scriptExecutor.Execute(scriptName);
 
                 // assert
-                scriptEngine.Object.FileName.ShouldEqual(scriptName);
-            }
-        }
+                preProcessor.Verify(fs => fs.ProcessFile(Path.Combine(currentDirectory, scriptName)), Times.Once());
 
-        public class TheExecuteScriptMethod
-        {
-            [Theory, ScriptCsAutoData]
-            public void ShouldInvokeEngineExecute(
-                [Frozen] Mock<IFilePreProcessor> preProcessor,
-                Mock<ScriptExecutor> executor,
-                FilePreProcessorResult result
-            )
-            {
-                executor.Protected();
-                preProcessor.Setup(p => p.ProcessScript(It.IsAny<string>())).Returns(result);
-                executor.Setup(
-                    e => e.EngineExecute(
-                        It.IsAny<string>(),
-                        It.IsAny<string[]>(),
-                        It.IsAny<FilePreProcessorResult>()));
-
-                var args = new string[] { };
-
-                executor.Object.ExecuteScript("", args);
-
-                executor.Verify(
-                    e => e.EngineExecute(
-                        "workingdirectory",
-                        args,
-                        result));
-            }
-
-        }
-
-        public class TheInjectScriptLibrariesMethod
-        {
-            private IDictionary<string, object> _state = new Dictionary<string, object>();
-            private FilePreProcessorResult _result = new FilePreProcessorResult();
-            private FilePreProcessorResult _scriptLibrariesPreProcessorResult = new FilePreProcessorResult();
-
-            public TheInjectScriptLibrariesMethod()
-            {
-                _scriptLibrariesPreProcessorResult.Code = "Test";
-                _result.Code = "";
+                scriptEngine.Verify(s => s.Execute(code, It.IsAny<string[]>(), It.IsAny<AssemblyReferences>(), It.IsAny<IEnumerable<string>>(), It.IsAny<ScriptPackSession>()), Times.Once());
             }
 
             [Theory, ScriptCsAutoData]
-            public void ShouldExitIfPreProcessorResultIsNull(ScriptExecutor executor)
+            public void ShouldExecuteScriptWhenExecuteScriptIsInvoked([Frozen] Mock<IScriptEngine> scriptEngine, [Frozen] Mock<IFileSystem> fileSystem,
+                                                                                                                                     [Frozen] Mock<IFilePreProcessor> preProcessor, ScriptExecutor scriptExecutor)
             {
-                executor.InjectScriptLibraries("", _result, _state);
-                _result.Code.ShouldBeEmpty();
-            }
+                string code = Guid.NewGuid().ToString();
 
-            [Theory, ScriptCsAutoData]
-            public void ShouldExitIfSessionPackageScriptsInjectedIsSet(Mock<ScriptExecutor> executor)
-            {
-                _state["ScriptLibrariesInjected"] = null;
-                executor.Protected();
-                executor.Setup(e => e.LoadScriptLibraries(It.IsAny<string>())).Returns(_scriptLibrariesPreProcessorResult);
-                executor.Object.InjectScriptLibraries("", _result, _state);
-                _result.Code.ShouldBeEmpty();
-            }
+                var currentDirectory = @"C:\";
+                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>())).Returns(currentDirectory);
+                fileSystem.Setup(fs => fs.CurrentDirectory).Returns(currentDirectory);
 
-            [Theory, ScriptCsAutoData]
-            public void ShouldInjectResultCode(Mock<ScriptExecutor> executor)
-            {
-                executor.Protected();
-                executor.Setup(e => e.LoadScriptLibraries(It.IsAny<string>())).Returns(_scriptLibrariesPreProcessorResult);
-                executor.Object.InjectScriptLibraries("", _result, _state);
-                _result.Code.ShouldEqual("Test" + Environment.NewLine);
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldAddResultReferences(Mock<ScriptExecutor> executor)
-            {
-                executor.Protected();
-                executor.Setup(e => e.LoadScriptLibraries(It.IsAny<string>())).Returns(_scriptLibrariesPreProcessorResult);
-                _scriptLibrariesPreProcessorResult.References.Add("ref1");
-                executor.Object.InjectScriptLibraries("", _result, _state);
-                _result.References.ShouldContain("ref1");
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldAddResultNamespaces(Mock<ScriptExecutor> executor)
-            {
-                executor.Protected();
-                executor.Setup(e => e.LoadScriptLibraries(It.IsAny<string>())).Returns(_scriptLibrariesPreProcessorResult);
-                _scriptLibrariesPreProcessorResult.Namespaces.Add("ns1");
-                executor.Object.InjectScriptLibraries("", _result, _state);
-                _result.Namespaces.ShouldContain("ns1");
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldSetPackageScriptsInjectedInSession(Mock<ScriptExecutor> executor)
-            {
-                executor.Protected();
-                executor.Setup(e => e.LoadScriptLibraries(It.IsAny<string>())).Returns(_scriptLibrariesPreProcessorResult);
-                executor.Object.InjectScriptLibraries("", _result, _state);
-                _state.ContainsKey("ScriptLibrariesInjected");
-            }
-        }
-
-        public class TheLoadScriptLibrariesMethod
-        {
-            [Theory, ScriptCsAutoData]
-            public void ShouldPreProcessTheScriptLibrariesFileIfPresent(
-                [Frozen] Mock<IFileSystem> fileSystem,
-                [Frozen] Mock<IFilePreProcessor> preProcessor,
-                [Frozen] Mock<IScriptEngine> engine,
-                [Frozen] TestLogProvider logProvider,
-                [Frozen] Mock<IScriptLibraryComposer> composer)
-            {
-                // arrange
-                fileSystem.Setup(fs => fs.FileExists(It.IsAny<string>())).Returns(true);
-                var executor = new ScriptExecutor(
-                    fileSystem.Object, preProcessor.Object, engine.Object, logProvider, composer.Object);
+                var paths = new string[0];
+                var recipes = Enumerable.Empty<IScriptPack>();
+                var script = "var a=1;";
+                preProcessor.Setup(fs => fs.ProcessScript(script)).Returns(new FilePreProcessorResult { Code = script }).Verifiable();
+                scriptEngine.Setup(e => e.Execute(code, It.IsAny<string[]>(), It.IsAny<AssemblyReferences>(), It.IsAny<IEnumerable<string>>(), It.IsAny<ScriptPackSession>()));
 
                 // act
-                executor.LoadScriptLibraries("");
-                
+                scriptExecutor.Initialize(paths, recipes);
+                scriptExecutor.ExecuteScript(script);
+
                 // assert
-                preProcessor.Verify(p => p.ProcessFile(It.IsAny<string>()));
+                preProcessor.Verify(fs => fs.ProcessScript(script), Times.Once());
+
+                scriptEngine.Verify(s => s.Execute(script, It.IsAny<string[]>(), It.IsAny<AssemblyReferences>(), It.IsAny<IEnumerable<string>>(), It.IsAny<ScriptPackSession>()), Times.Once());
+            }
+
+            [Theory, ScriptCsAutoData]
+            public void ShouldAddReferenceToEachDestinationFile([Frozen] Mock<IScriptEngine> scriptEngine, [Frozen] Mock<IFileSystem> fileSystem,
+                                                                                            [Frozen] Mock<IFilePreProcessor> preProcessor, ScriptExecutor scriptExecutor)
+            {
+                // arrange
+                var defaultReferences = ScriptExecutor.DefaultReferences;
+                preProcessor.Setup(x => x.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult());
+
+                var currentDirectory = @"C:\";
+                var destinationFilePath1 = Path.Combine(currentDirectory, @"bin\fileName1.cs");
+                var destinationFilePath2 = Path.Combine(currentDirectory, @"bin\fileName2.cs");
+                var destinationFilePath3 = Path.Combine(currentDirectory, @"bin\fileName3.cs");
+                var destinationFilePath4 = Path.Combine(currentDirectory, @"bin\fileName4.cs");
+
+                var scriptName = "script.csx";
+
+                fileSystem.Setup(fs => fs.CurrentDirectory).Returns(currentDirectory);
+                fileSystem.Setup(fs => fs.GetWorkingDirectory(It.IsAny<string>())).Returns(currentDirectory);
+
+                var destPaths = new string[] { "System", "System.Core", destinationFilePath1, destinationFilePath2, destinationFilePath3, destinationFilePath4 };
+
+                scriptEngine.Setup(e => e.Execute(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<AssemblyReferences>(), It.IsAny<IEnumerable<string>>(), It.IsAny<ScriptPackSession>()));
+
+                scriptExecutor.AddReferences("a");
+                scriptExecutor.AddReferences(new[] { "a", "a", "b", "c", "d" });
+                scriptExecutor.AddReference<FactAttribute>();
+                scriptExecutor.AddReferences(typeof(TheInitializeMethod));
+                var explicitReferences = new[] { "a", "b", "c", "d", typeof(FactAttribute).Assembly.Location, typeof(TheInitializeMethod).Assembly.Location };
+
+                // act
+                scriptExecutor.Initialize(destPaths, Enumerable.Empty<IScriptPack>());
+                scriptExecutor.Execute(scriptName);
+
+                // assert
+                scriptEngine.Verify(e => e.Execute(It.IsAny<string>(), It.IsAny<string[]>(), It.Is<AssemblyReferences>(x => x.PathReferences.SequenceEqual(defaultReferences.Union(explicitReferences.Union(destPaths)))), It.IsAny<IEnumerable<string>>(), It.IsAny<ScriptPackSession>()), Times.Once());
+            }
+
+            [Theory, ScriptCsAutoData]
+            public void ShouldSetEngineFileName([Frozen] Mock<IScriptEngine> scriptEngine, [Frozen] Mock<IFileSystem> fileSystem,
+                                                                [Frozen] Mock<IFilePreProcessor> preProcessor, ScriptExecutor scriptExecutor)
+            {
+                // arrange
+                const string CurrentDirectory = @"c:\scriptcs";
+
+                scriptEngine.SetupProperty(e => e.FileName);
+
+                fileSystem.Setup(fs => fs.GetWorkingDirectory(It.IsAny<string>())).Returns(CurrentDirectory);
+                fileSystem.Setup(fs => fs.CurrentDirectory).Returns(CurrentDirectory);
+
+                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult());
+
+                const string ScriptName = "script.csx";
+
+                // act
+                scriptExecutor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
+                scriptExecutor.Execute(ScriptName);
+
+                // assert
+                scriptEngine.Object.FileName.ShouldEqual(ScriptName);
+            }
+
+            [Theory, ScriptCsAutoData]
+            public void ShouldAddNamespaces([Frozen] Mock<IScriptEngine> scriptEngine, [Frozen] Mock<IFileSystem> fileSystem,
+                                                                [Frozen] Mock<IFilePreProcessor> preProcessor, ScriptExecutor scriptExecutor)
+            {
+                // arrange
+                preProcessor.Setup(x => x.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult());
+
+                var currentDirectory = @"C:\";
+
+                var scriptName = "script.csx";
+
+                fileSystem.Setup(fs => fs.CurrentDirectory).Returns(currentDirectory);
+                fileSystem.Setup(fs => fs.GetWorkingDirectory(It.IsAny<string>())).Returns(currentDirectory);
+
+                scriptEngine.Setup(e => e.Execute(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<AssemblyReferences>(), It.IsAny<IEnumerable<string>>(), It.IsAny<ScriptPackSession>()));
+
+                scriptExecutor.ImportNamespaces("a");
+                scriptExecutor.ImportNamespaces(new[] { "a", "a", "b", "c", "d" }.ToArray());
+                scriptExecutor.ImportNamespace<FactAttribute>();
+                scriptExecutor.ImportNamespaces(typeof(TheInitializeMethod));
+                var explicitNamespaces = new[] { "a", "b", "c", "d", typeof(FactAttribute).Namespace, typeof(TheInitializeMethod).Namespace };
+
+                // act
+                scriptExecutor.Initialize(new string[0], Enumerable.Empty<IScriptPack>());
+                scriptExecutor.Execute(scriptName);
+
+                // assert
+                scriptEngine.Verify(e => e.Execute(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<AssemblyReferences>(), It.Is<IEnumerable<string>>(x => x.SequenceEqual(ScriptExecutor.DefaultNamespaces.Union(explicitNamespaces))), It.IsAny<ScriptPackSession>()), Times.Once());
+            }
+
+            [Theory, ScriptCsAutoData]
+            public void ExecutorShouldPassDefaultNamespacesToEngine([Frozen] Mock<IScriptEngine> engine, [Frozen] Mock<IFileSystem> fileSystem,
+                                                                                                       [Frozen] Mock<IFilePreProcessor> preProcessor, ScriptExecutor executor)
+            {
+                var expectedNamespaces = ScriptExecutor.DefaultNamespaces;
+
+                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>())).Returns(@"c:\my_script");
+                fileSystem.Setup(f => f.CurrentDirectory).Returns(@"c:\my_script");
+
+                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult { Code = "var a = 0;" });
+
+                executor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
+                executor.Execute("script.csx");
+
+                engine.Verify(i => i.Execute(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<AssemblyReferences>(), It.Is<IEnumerable<string>>(x => !x.Except(expectedNamespaces).Any()), It.IsAny<ScriptPackSession>()), Times.Exactly(1));
+            }
+
+            [Theory, ScriptCsAutoData]
+            public void ExecutorShouldPassDefaultReferencesToEngine([Frozen] Mock<IScriptEngine> engine, [Frozen] Mock<IFileSystem> fileSystem,
+                                                                                                    [Frozen] Mock<IFilePreProcessor> preProcessor, ScriptExecutor executor)
+            {
+                var defaultReferences = ScriptExecutor.DefaultReferences;
+
+                fileSystem.Setup(f => f.GetWorkingDirectory(It.IsAny<string>())).Returns(@"c:\my_script");
+                fileSystem.Setup(f => f.CurrentDirectory).Returns(@"c:\my_script");
+
+                preProcessor.Setup(p => p.ProcessFile(It.IsAny<string>())).Returns(new FilePreProcessorResult { Code = "var a = 0;" });
+
+                executor.Initialize(Enumerable.Empty<string>(), Enumerable.Empty<IScriptPack>());
+                executor.Execute("script.csx");
+
+                engine.Verify(i => i.Execute(It.IsAny<string>(), It.IsAny<string[]>(), It.Is<AssemblyReferences>(x => !x.PathReferences.Except(defaultReferences).Any()), It.IsAny<IEnumerable<string>>(), It.IsAny<ScriptPackSession>()), Times.Exactly(1));
             }
         }
 
@@ -605,19 +334,15 @@ namespace ScriptCs.Tests
             [Theory, ScriptCsAutoData]
             public void ShouldAddReferenceToEachAssembly(ScriptExecutor executor)
             {
-                // arrange
-                var assembly1 = typeof(Mock).Assembly;
-                var assembly2 = typeof(FrozenAttribute).Assembly;
-                var assembly3 = typeof(Assert).Assembly;
+                var calling = Assembly.GetCallingAssembly();
+                var executing = Assembly.GetExecutingAssembly();
+                var entry = Assembly.GetEntryAssembly();
+                executor.AddReferences(calling, executing, entry, entry);
 
-                // act
-                executor.AddReferences(assembly1, assembly2, assembly3, assembly3);
-
-                // assert
-                executor.References.Assemblies.ShouldContain(assembly1);
-                executor.References.Assemblies.ShouldContain(assembly2);
-                executor.References.Assemblies.ShouldContain(assembly3);
-                executor.References.Assemblies.Count().ShouldEqual(3);
+                executor.References.Assemblies.ShouldContain(calling);
+                executor.References.Assemblies.ShouldContain(executing);
+                executor.References.Assemblies.ShouldContain(entry);
+                executor.References.Assemblies.Count.ShouldEqual(3);
             }
         }
 
@@ -626,20 +351,16 @@ namespace ScriptCs.Tests
             [Theory, ScriptCsAutoData]
             public void ShouldRemoveReferenceToEachAssembly(ScriptExecutor executor)
             {
-                // arrange
-                var assembly1 = typeof(Mock).Assembly;
-                var assembly2 = typeof(FrozenAttribute).Assembly;
-                var assembly3 = typeof(Assert).Assembly;
-                executor.AddReferences(assembly1, assembly2, assembly3);
+                var calling = Assembly.GetCallingAssembly();
+                var executing = Assembly.GetExecutingAssembly();
+                var entry = Assembly.GetEntryAssembly();
+                executor.AddReferences(calling, executing, entry);
+                executor.RemoveReferences(calling, executing);
 
-                // act
-                executor.RemoveReferences(assembly1, assembly2);
-
-                // assert
-                executor.References.Assemblies.ShouldNotContain(assembly1);
-                executor.References.Assemblies.ShouldNotContain(assembly2);
-                executor.References.Assemblies.ShouldContain(assembly3);
-                executor.References.Assemblies.Count().ShouldEqual(1);
+                executor.References.Assemblies.ShouldNotContain(calling);
+                executor.References.Assemblies.ShouldNotContain(executing);
+                executor.References.Assemblies.ShouldContain(entry);
+                executor.References.Assemblies.Count.ShouldEqual(1);
             }
         }
     }

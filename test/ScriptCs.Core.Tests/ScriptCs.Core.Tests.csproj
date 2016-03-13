@@ -11,10 +11,10 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\</SolutionDir>
     <CodeAnalysisRuleSet>..\..\ScriptCs.Test.ruleset</CodeAnalysisRuleSet>
     <NoWarn>1701</NoWarn>
-    <LangVersion>5</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -40,40 +40,32 @@
     <Compile Include="..\..\common\CommonVersionInfo.cs">
       <Link>Properties\CommonVersionInfo.cs</Link>
     </Compile>
-    <Compile Include="..\*.cs">
-      <Link>%(Filename)%(Extension)</Link>
+    <Compile Include="..\ScriptCsAutoDataAttribute.cs">
+      <Link>ScriptCsAutoDataAttribute.cs</Link>
+    </Compile>
+    <Compile Include="..\ScriptCsMoqCustomization.cs">
+      <Link>ScriptCsMoqCustomization.cs</Link>
     </Compile>
     <Compile Include="AppDomainAssemblyResolverTests.cs" />
     <Compile Include="AssemblyResolverTests.cs" />
-    <Compile Include="AssemblyUtilityTests.cs" />
     <Compile Include="DirectiveLineProcessorTests.cs" />
-    <Compile Include="FileSystemMigratorTests.cs" />
     <Compile Include="PackageReferenceTests.cs" />
-    <Compile Include="ReplCommands\HelpCommandTests.cs" />
-    <Compile Include="ReplCommands\ScriptPacksCommandTests.cs" />
-    <Compile Include="ScriptLibraryComposerTests.cs" />
     <Compile Include="ReferenceLineProcessorTests.cs" />
     <Compile Include="LoadLineProcessorTests.cs" />
     <Compile Include="FileSystemTests.cs" />
     <Compile Include="FileProcessorTests.cs" />
     <Compile Include="PackageAssemblyResolverTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ReplCommands\AliasCommandTests.cs" />
     <Compile Include="ReplCommands\CdCommandTests.cs" />
     <Compile Include="ReplCommands\ClearCommandTests.cs" />
     <Compile Include="ReplCommands\CwdCommandTests.cs" />
-    <Compile Include="ReplCommands\ExitCommandTests.cs" />
     <Compile Include="ReplCommands\InstallCommandTests.cs" />
-    <Compile Include="ReplCommands\ReferencesCommandTests.cs" />
     <Compile Include="ReplCommands\ResetCommandTests.cs" />
-    <Compile Include="ReplCommands\UsingsCommandTests.cs" />
-    <Compile Include="ReplCommands\VarsCommandTests.cs" />
     <Compile Include="ReplTests.cs" />
     <Compile Include="ScriptExecutorTests.cs" />
     <Compile Include="ScriptHostTests.cs" />
     <Compile Include="ScriptPackResolverTests.cs" />
     <Compile Include="ScriptPackSessionTests.cs" />
-    <Compile Include="ShebangLineProcessorTests.cs" />
     <Compile Include="UsingLineProcessorTests.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -84,9 +76,11 @@
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Common.Logging, Version=2.1.2.0, Culture=neutral, PublicKeyToken=af08829b84f0328e, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Common.Logging.2.1.2\lib\net40\Common.Logging.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="Common.Logging">
+      <HintPath>..\..\..\packages\Common.Logging.3.3.1\lib\net40\Common.Logging.dll</HintPath>
+    </Reference>
+    <Reference Include="Common.Logging.Core">
+      <HintPath>..\..\..\packages\Common.Logging.Core.3.3.1\lib\net40\Common.Logging.Core.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Web.XmlTransform, Version=2.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -95,8 +89,9 @@
     <Reference Include="Moq">
       <HintPath>..\..\packages\Moq.4.2.1402.2112\lib\net40\Moq.dll</HintPath>
     </Reference>
-    <Reference Include="NuGet.Core">
-      <HintPath>..\..\packages\NuGet.Core.2.8.6\lib\net40-Client\NuGet.Core.dll</HintPath>
+    <Reference Include="NuGet.Core, Version=2.8.50506.491, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\packages\Nuget.Core.2.8.2\lib\net40-Client\NuGet.Core.dll</HintPath>
     </Reference>
     <Reference Include="Ploeh.AutoFixture">
       <HintPath>..\..\packages\AutoFixture.3.18.8\lib\net40\Ploeh.AutoFixture.dll</HintPath>

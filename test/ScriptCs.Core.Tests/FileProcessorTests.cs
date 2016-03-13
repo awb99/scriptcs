@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Common.Logging;
 using Moq;
 using ScriptCs.Contracts;
 using ScriptCs.Contracts.Exceptions;
@@ -15,7 +16,6 @@ namespace ScriptCs.Tests
         {
             private List<string> _file1 = new List<string>
                 {
-                    @"#!/usr/bin/env scriptcs",
                     @"#load ""script2.csx""",
                     @"#load ""script4.csx"";",
                     "using System;",
@@ -182,24 +182,6 @@ namespace ScriptCs.Tests
                 var result = processor.ProcessFile("script1.csx");
 
                 result.Code.ShouldNotContain("#r");
-            }
-
-            [Fact]
-            public void ShouldNotIncludeShebangsInCode()
-            {
-                var file1 = new List<string>
-                    {
-                        @"#!/usr/bin/env scriptcs",
-                        "using System;",
-                        @"Console.WriteLine(""Hi!"");"
-                    };
-
-                _fileSystem.Setup(x => x.ReadFileLines(It.Is<string>(f => f == "script1.csx"))).Returns(file1.ToArray());
-
-                var processor = GetFilePreProcessor();
-                var result = processor.ProcessFile("script1.csx");
-
-                result.Code.ShouldNotContain("#!/usr/bin/env");
             }
 
             [Fact]
@@ -520,11 +502,10 @@ namespace ScriptCs.Tests
                 {
                     new UsingLineProcessor(),
                     new ReferenceLineProcessor(_fileSystem.Object),
-                    new LoadLineProcessor(_fileSystem.Object),
-                    new ShebangLineProcessor()
+                    new LoadLineProcessor(_fileSystem.Object)
                 };
 
-                return new FilePreProcessor(_fileSystem.Object, new TestLogProvider(), lineProcessors);
+                return new FilePreProcessor(_fileSystem.Object, Mock.Of<ILog>(), lineProcessors);
             }
         }
 
@@ -584,11 +565,10 @@ namespace ScriptCs.Tests
                 {
                     new UsingLineProcessor(),
                     new ReferenceLineProcessor(_fileSystem.Object),
-                    new LoadLineProcessor(_fileSystem.Object),
-                    new ShebangLineProcessor()
+                    new LoadLineProcessor(_fileSystem.Object)
                 };
 
-                return new FilePreProcessor(_fileSystem.Object, new TestLogProvider(), lineProcessors);
+                return new FilePreProcessor(_fileSystem.Object, Mock.Of<ILog>(), lineProcessors);
             }
         }
 
@@ -642,11 +622,10 @@ namespace ScriptCs.Tests
                         new UsingLineProcessor(),
                         new ReferenceLineProcessor(_fileSystem.Object),
                         loadLineProcessor,
-                        new ShebangLineProcessor(),
                         customDirectiveProcessor
                     };
 
-                return new FilePreProcessor(_fileSystem.Object, new TestLogProvider(), lineProcessors);
+                return new FilePreProcessor(_fileSystem.Object, Mock.Of<ILog>(), lineProcessors);
             }
 
             public class TestableLoadLineProcessor : LoadLineProcessor

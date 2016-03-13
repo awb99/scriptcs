@@ -1,17 +1,17 @@
-﻿using System;
+﻿using Common.Logging;
 using ScriptCs.Contracts;
+using ILog = Common.Logging.ILog;
 using LogLevel = ScriptCs.Contracts.LogLevel;
 
 namespace ScriptCs.Hosting
 {
-    [Obsolete("Support for Common.Logging types was deprecated in version 0.15.0 and will soon be removed.")]
     public class LoggerConfigurator : ILoggerConfigurator
     {
         private const string LoggerName = "scriptcs";
 
         private readonly LogLevel _logLevel;
 
-        private Common.Logging.ILog _logger;
+        private ILog _logger;
 
         public LoggerConfigurator(LogLevel logLevel)
         {
@@ -20,10 +20,10 @@ namespace ScriptCs.Hosting
 
         public void Configure(IConsole console)
         {
-            _logger = new ScriptConsoleLogger(_logLevel, console, Common.Logging.LogManager.GetLogger(LoggerName));
+            _logger = new ScriptConsoleLogger(_logLevel, console, LogManager.GetLogger(LoggerName));
         }
 
-        public Common.Logging.ILog GetLogger()
+        public ILog GetLogger()
         {
             return _logger;
         }

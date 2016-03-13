@@ -1,26 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+
 using ScriptCs.Contracts;
 
 namespace ScriptCs
 {
     public class FileSystem : IFileSystem
     {
-        public virtual IEnumerable<string> EnumerateFiles(
-            string dir, string searchPattern, SearchOption searchOption = SearchOption.AllDirectories)
+        public virtual IEnumerable<string> EnumerateFiles(string dir, string searchPattern, SearchOption searchOption = SearchOption.AllDirectories)
         {
             return Directory.EnumerateFiles(dir, searchPattern, searchOption);
         }
 
-        public virtual IEnumerable<string> EnumerateDirectories(
-            string dir, string searchPattern, SearchOption searchOption = SearchOption.AllDirectories)
+        public virtual IEnumerable<string> EnumerateDirectories(string dir, string searchPattern, SearchOption searchOption = SearchOption.AllDirectories)
         {
             return Directory.EnumerateDirectories(dir, searchPattern, searchOption);
         }
 
-        public virtual IEnumerable<string> EnumerateFilesAndDirectories(
-            string dir, string searchPattern, SearchOption searchOption = SearchOption.AllDirectories)
+        public virtual IEnumerable<string> EnumerateFilesAndDirectories(string dir, string searchPattern, SearchOption searchOption = SearchOption.AllDirectories)
         {
             return Directory.EnumerateFileSystemEntries(dir, searchPattern, searchOption);
         }
@@ -28,28 +26,6 @@ namespace ScriptCs
         public virtual void Copy(string source, string dest, bool overwrite)
         {
             File.Copy(source, dest, overwrite);
-        }
-
-        public virtual void CopyDirectory(string source, string dest, bool overwrite)
-        {
-            // NOTE: adding guards since the exceptions thrown by System.IO would be confusing
-            Guard.AgainstNullArgument("source", source);
-            Guard.AgainstNullArgument("dest", dest);
-
-            if (!Directory.Exists(dest))
-            {
-                Directory.CreateDirectory(dest);
-            }
-
-            foreach (var file in Directory.GetFiles(source))
-            {
-                File.Copy(file, Path.Combine(dest, Path.GetFileName(file)), overwrite);
-            }
-
-            foreach (var directory in Directory.GetDirectories(source))
-            {
-                CopyDirectory(directory, Path.Combine(dest, Path.GetFileName(directory)), overwrite);
-            }
         }
 
         public virtual bool DirectoryExists(string path)
@@ -108,11 +84,6 @@ namespace ScriptCs
             File.Move(source, dest);
         }
 
-        public virtual void MoveDirectory(string source, string dest)
-        {
-            Directory.Move(source, dest);
-        }
-
         public virtual bool FileExists(string path)
         {
             return File.Exists(path);
@@ -145,12 +116,11 @@ namespace ScriptCs
             File.WriteAllBytes(filePath, bytes);
         }
 
-        public virtual string GlobalFolder
+        public virtual string ModulesFolder
         {
             get
             {
-                return Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "scriptcs");
+                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "scriptcs");
             }
         }
 
@@ -165,7 +135,9 @@ namespace ScriptCs
 
             if (FileExists(realPath) || DirectoryExists(realPath))
             {
-                if ((File.GetAttributes(realPath) & FileAttributes.Directory) == FileAttributes.Directory)
+                var attributes = File.GetAttributes(realPath);
+
+                if ((attributes & FileAttributes.Directory) == FileAttributes.Directory)
                 {
                     return realPath;
                 }
@@ -188,32 +160,27 @@ namespace ScriptCs
 
         public virtual string BinFolder
         {
-            get { return "scriptcs_bin"; }
+            get { return "bin"; }
         }
 
         public virtual string DllCacheFolder
         {
-            get { return ".scriptcs_cache"; }
+            get { return ".cache"; }
         }
 
         public virtual string PackagesFile
         {
-            get { return "scriptcs_packages.config"; }
+            get { return "packages.config"; }
         }
 
         public virtual string PackagesFolder
         {
-            get { return "scriptcs_packages"; }
+            get { return "packages"; }
         }
 
         public virtual string NugetFile
         {
-            get { return "scriptcs_nuget.config"; }
-        }
-
-        public virtual string GlobalOptsFile
-        {
-            get { return Path.Combine(GlobalFolder, Constants.ConfigFilename); }
+            get { return "nuget.config"; }
         }
     }
 }

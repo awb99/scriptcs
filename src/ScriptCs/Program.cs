@@ -1,6 +1,9 @@
 ﻿using System;
-using System.IO;
-using System.Linq;
+using System.Reflection;
+using ScriptCs.Argument;
+using ScriptCs.Command;
+using ScriptCs.Hosting;
+using ScriptCs.Contracts;
 
 namespace ScriptCs
 {
@@ -9,43 +12,44 @@ namespace ScriptCs
         [LoaderOptimizationAttribute(LoaderOptimization.MultiDomain)]
         private static int Main(string[] args)
         {
-            ProfileOptimizationShim.SetProfileRoot(Path.GetDirectoryName(typeof(Program).Assembly.Location));
-            ProfileOptimizationShim.StartProfile(typeof(Program).Assembly.GetName().Name + ".profile");
+            SetProfile();
+            var arguments = ParseArguments(args);
+            
+            IConsole console = new ScriptConsole();
+            var scriptServicesBuilder = ScriptServicesBuilderFactory.Create(arguments.CommandArguments, arguments.ScriptArguments, console);
+            
+            var factory = new CommandFactory(scriptServicesBuilder,console);
+            var command = factory.CreateCommand(arguments.CommandArguments, arguments.ScriptArguments);
+            
+            return (int)command.Execute();
+        }
 
-            var nonScriptArgs = args.TakeWhile(arg => arg != "--").ToArray();
-            var scriptArgs = args.Skip(nonScriptArgs.Length + 1).ToArray();
+        private static void SetProfile()
+        {
+            var profileOptimizationType = Type.GetType("System.Runtime.ProfileOptimization");
+            if (profileOptimizationType != null)
+            {
+                var setProfileRoot = profileOptimizationType.GetMethod("SetProfileRoot", BindingFlags.Public | BindingFlags.Static);
+                setProfileRoot.Invoke(null, new object[] { typeof(Program).Assembly.Location });
 
-            ScriptCsArgs commandArgs;
+                var startProfile = profileOptimizationType.GetMethod("StartProfile", BindingFlags.Public | BindingFlags.Static);
+                startProfile.Invoke(null, new object[] { typeof(Program).Assembly.GetName().Name + ".profile" });
+            }
+        }
+
+        private static ArgumentParseResult ParseArguments(string[] args)
+        {
+        	
+            var console = new ScriptConsole(); // an IConsole; for icsharp we want a differentone.
             try
             {
-                commandArgs = ScriptCsArgs.Parse(nonScriptArgs);
+                var parser = new ArgumentHandler(new ArgumentParser(console), new ConfigFileParser(console), new FileSystem());
+                return parser.Parse(args);
             }
-            catch (Exception ex)
+            finally
             {
-                Console.WriteLine(ex.Message);
-                Console.WriteLine(ScriptCsArgs.GetUsage());
-                return 1;
+                console.Exit();
             }
-
-            if (commandArgs.Help)
-            {
-                Console.WriteLine(ScriptCsArgs.GetUsage());
-                return 0;
-            }
-
-            if (commandArgs.Version)
-            {
-                VersionWriter.Write();
-                return 0;
-            }
-
-            if (commandArgs.Config != null && !File.Exists(commandArgs.Config))
-            {
-                Console.WriteLine("The specified config file does not exist.");
-                return 1;
-            }
-
-            return Application.Run(Config.Create(commandArgs), scriptArgs);
         }
     }
 }

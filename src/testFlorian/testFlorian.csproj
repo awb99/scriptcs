@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <PropertyGroup>
+    <ProjectGuid>{A519F619-51A3-48D9-A03D-FA43C51471AC}</ProjectGuid>
+    <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>testFlorian</RootNamespace>
+    <AssemblyName>testFlorian</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Platform)' == 'AnyCPU' ">
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <DebugSymbols>True</DebugSymbols>
+    <DebugType>Full</DebugType>
+    <Optimize>False</Optimize>
+    <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <DebugSymbols>False</DebugSymbols>
+    <DebugType>None</DebugType>
+    <Optimize>True</Optimize>
+    <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
+    <DefineConstants>TRACE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Common.Logging">
+      <HintPath>..\..\packages\Common.Logging.3.3.1\lib\net40\Common.Logging.dll</HintPath>
+    </Reference>
+    <Reference Include="Common.Logging.Core">
+      <HintPath>..\..\packages\Common.Logging.Core.3.3.1\lib\net40\Common.Logging.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CSharp">
+      <RequiredTargetFramework>4.0</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.DataSetExtensions">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ScriptCs.Contracts\ScriptCs.Contracts.csproj">
+      <Project>{6049E205-8B5F-4080-B023-70600E51FD64}</Project>
+      <Name>ScriptCs.Contracts</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ScriptCs.Core\ScriptCs.Core.csproj">
+      <Project>{E590E710-E159-48E6-A3E6-1A83D3FE732C}</Project>
+      <Name>ScriptCs.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ScriptCs.Engine.Mono\ScriptCs.Engine.Mono.csproj">
+      <Project>{E4ADCFEE-FF3B-4EF5-8298-2B31F407F58B}</Project>
+      <Name>ScriptCs.Engine.Mono</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ScriptCs.Engine.Roslyn\ScriptCs.Engine.Roslyn.csproj">
+      <Project>{E79EC231-E27D-4057-91C9-2D001A3A8C3B}</Project>
+      <Name>ScriptCs.Engine.Roslyn</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ScriptCs.Hosting\ScriptCs.Hosting.csproj">
+      <Project>{9AEF2D95-87FB-4829-B384-34BFE076D531}</Project>
+      <Name>ScriptCs.Hosting</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ScriptCs\ScriptCs.csproj">
+      <Project>{25080671-1A80-4041-B9C7-260578FF4849}</Project>
+      <Name>ScriptCs</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

@@ -11,8 +11,8 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\</SolutionDir>
-    <LangVersion>5</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -34,28 +34,14 @@
     <CodeAnalysisRuleSet>..\..\ScriptCs.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Common.Logging, Version=2.1.2.0, Culture=neutral, PublicKeyToken=af08829b84f0328e, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Common.Logging.2.1.2\lib\net40\Common.Logging.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="Common.Logging">
+      <HintPath>..\..\packages\Common.Logging.3.3.1\lib\net40\Common.Logging.dll</HintPath>
     </Reference>
-    <Reference Include="ICSharpCode.NRefactory, Version=5.0.0.0, Culture=neutral, PublicKeyToken=d4bfe873e7598c49, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\ICSharpCode.NRefactory.5.5.1\lib\Net40\ICSharpCode.NRefactory.dll</HintPath>
+    <Reference Include="Common.Logging.Core">
+      <HintPath>..\..\packages\Common.Logging.Core.3.3.1\lib\net40\Common.Logging.Core.dll</HintPath>
     </Reference>
-    <Reference Include="ICSharpCode.NRefactory.Cecil">
-      <HintPath>..\..\packages\ICSharpCode.NRefactory.5.5.1\lib\Net40\ICSharpCode.NRefactory.Cecil.dll</HintPath>
-    </Reference>
-    <Reference Include="ICSharpCode.NRefactory.CSharp, Version=5.0.0.0, Culture=neutral, PublicKeyToken=d4bfe873e7598c49, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\ICSharpCode.NRefactory.5.5.1\lib\Net40\ICSharpCode.NRefactory.CSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="ICSharpCode.NRefactory.Xml, Version=5.0.0.0, Culture=neutral, PublicKeyToken=d4bfe873e7598c49, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\ICSharpCode.NRefactory.5.5.1\lib\Net40\ICSharpCode.NRefactory.Xml.dll</HintPath>
-    </Reference>
-    <Reference Include="Mono.CSharp, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Mono.CSharp.4.0.0.143\lib\4.5\Mono.CSharp.dll</HintPath>
+    <Reference Include="Mono.CSharp">
+      <HintPath>..\..\packages\Mono.CSharp.3.4.0\lib\net40\Mono.CSharp.dll</HintPath>
       <Aliases>MonoCSharp</Aliases>
     </Reference>
     <Reference Include="System" />
@@ -78,6 +64,15 @@
     <Reference Include="Mono.Cecil.Rocks">
       <HintPath>..\..\packages\Mono.Cecil.0.9.5.4\lib\net40\Mono.Cecil.Rocks.dll</HintPath>
     </Reference>
+    <Reference Include="ICSharpCode.NRefactory">
+      <HintPath>..\..\packages\ICSharpCode.NRefactory.5.3.0\lib\Net40\ICSharpCode.NRefactory.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.NRefactory.CSharp">
+      <HintPath>..\..\packages\ICSharpCode.NRefactory.5.3.0\lib\Net40\ICSharpCode.NRefactory.CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.NRefactory.Xml">
+      <HintPath>..\..\packages\ICSharpCode.NRefactory.5.3.0\lib\Net40\ICSharpCode.NRefactory.Xml.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\common\CommonAssemblyInfo.cs">
@@ -93,19 +88,11 @@
     <Compile Include="MonoScriptEngine.cs" />
     <Compile Include="MonoHost.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Segmenter\Lexer\Token.cs" />
-    <Compile Include="Segmenter\Lexer\LexerResult.cs" />
-    <Compile Include="Segmenter\Lexer\ScriptLexer.cs" />
-    <Compile Include="Segmenter\Analyser\MethodResult.cs" />
-    <Compile Include="Segmenter\SegmentResult.cs" />
-    <Compile Include="Segmenter\SegmentType.cs" />
-    <Compile Include="Segmenter\ScriptSegmenter.cs" />
-    <Compile Include="Segmenter\Parser\RegionParser.cs" />
-    <Compile Include="Segmenter\Parser\RegionResult.cs" />
-    <Compile Include="Segmenter\Analyser\Visitors\ClassTypeVisitor.cs" />
-    <Compile Include="Segmenter\Analyser\Visitors\MethodVisitor.cs" />
-    <Compile Include="Segmenter\Analyser\Visitors\MethodVisitorResult.cs" />
-    <Compile Include="Segmenter\Analyser\CodeAnalyzer.cs" />
+    <Compile Include="Parser\Visitors\ClassTypeVisitor.cs" />
+    <Compile Include="Parser\Visitors\MethodVisitor.cs" />
+    <Compile Include="Parser\ParseResult.cs" />
+    <Compile Include="Parser\SyntaxParser.cs" />
+    <Compile Include="Parser\Visitors\MethodVisitorResult.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
@@ -124,4 +111,7 @@
   </ItemGroup>
   <Import Project="..\..\build\ScriptCs.Common.props" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Folder Include="Parser\" />
+  </ItemGroup>
 </Project>

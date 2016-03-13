@@ -6,8 +6,6 @@
     {
         TConfig ScriptExecutor<T>() where T : IScriptExecutor;
 
-        TConfig Repl<T>() where T : IRepl;
-
         TConfig ScriptEngine<T>() where T : IScriptEngine;
 
         TConfig ScriptHostFactory<T>() where T : IScriptHostFactory;

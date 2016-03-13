@@ -1,23 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+
 using ScriptCs.Contracts;
 
 namespace ScriptCs.Hosting
 {
     public class ModuleConfiguration : ServiceOverrides<IModuleConfiguration>, IModuleConfiguration
     {
-        public ModuleConfiguration(
-            bool cache,
-            string scriptName,
-            bool isRepl,
-            LogLevel logLevel,
-            bool debug,
-            IDictionary<Type, Object> overrides)
+        public ModuleConfiguration(bool cache, string scriptName, bool repl, LogLevel logLevel, bool debug, IDictionary<Type, Object> overrides)
             : base(overrides)
         {
             Cache = cache;
             ScriptName = scriptName;
-            IsRepl = isRepl;
+            Repl = repl;
             LogLevel = logLevel;
             Debug = debug;
         }
@@ -26,7 +21,7 @@ namespace ScriptCs.Hosting
 
         public string ScriptName { get; private set; }
 
-        public bool IsRepl { get; private set; }
+        public bool Repl { get; private set; }
 
         public LogLevel LogLevel { get; private set; }
 

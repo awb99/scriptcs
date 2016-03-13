@@ -20,8 +20,6 @@ namespace ScriptCs.Contracts
 
         IEnumerable<IPackageObject> Dependencies { get; }
 
-        IEnumerable<string> FrameworkAssemblies { get; }
-
-        IEnumerable<string> GetContentFiles();
+        IEnumerable<string> FrameworkAssemblies { get; } 
     }
 }

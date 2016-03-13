@@ -37,19 +37,6 @@ namespace ScriptCs.Tests
             }
 
             [Theory, ScriptCsAutoData]
-            public void ShouldIgnoreAliases(IFileParser parser, UsingLineProcessor processor)
-            {
-                // Arrange
-                const string UsingLine = @"using Path = ""System.IO.Path"";";
-
-                // Act
-                var result = processor.ProcessLine(parser, new FileParserContext(), UsingLine, true);
-
-                // Assert
-                result.ShouldBeFalse();
-            }
-
-            [Theory, ScriptCsAutoData]
             public void ShouldAddNamespaceToContext(IFileParser parser, UsingLineProcessor processor)
             {
                 // Arrange

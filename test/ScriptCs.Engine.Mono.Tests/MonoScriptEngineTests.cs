@@ -1,64 +1,23 @@
 ﻿extern alias MonoCSharp;
 
-using System.Collections.ObjectModel;
 using System.Linq;
-using MonoCSharp::Mono.CSharp;
+
+using Common.Logging;
 using Moq;
+using MonoCSharp::Mono.CSharp;
 using Ploeh.AutoFixture.Xunit;
-using ScriptCs.Contracts;
+
 using ScriptCs.Tests;
+using ScriptCs.Contracts;
+
 using Should;
+
 using Xunit.Extensions;
 
 namespace ScriptCs.Engine.Mono.Tests
 {
     public class MonoScriptEngineTests
     {
-        public class GetLocalVariablesMethod
-        {
-            [Theory, ScriptCsAutoData]
-            public void ShouldReturnDeclaredVariables([NoAutoProperties]MonoScriptEngine engine, ScriptPackSession scriptPackSession)
-            {
-                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
-                scriptPackSession.State[MonoScriptEngine.SessionKey] = session;
-
-                engine.Execute("int x = 1;", new string[0], new AssemblyReferences(), Enumerable.Empty<string>(),
-                    scriptPackSession);
-                engine.Execute(@"var y = ""www"";", new string[0], new AssemblyReferences(), Enumerable.Empty<string>(),
-    scriptPackSession);
-
-                engine.GetLocalVariables(scriptPackSession).ShouldEqual(new Collection<string> { "int x = 1", @"string y = ""www""" });
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldReturnOnlyLastValueOfVariablesDeclaredManyTimes([NoAutoProperties]MonoScriptEngine engine, ScriptPackSession scriptPackSession)
-            {
-                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
-                scriptPackSession.State[MonoScriptEngine.SessionKey] = session;
-
-                engine.Execute("int x = 1;", new string[0], new AssemblyReferences(), Enumerable.Empty<string>(), scriptPackSession);
-                engine.Execute("int x = 2;", new string[0], new AssemblyReferences(), Enumerable.Empty<string>(), scriptPackSession);
-
-                engine.GetLocalVariables(scriptPackSession).ShouldEqual(new Collection<string> { "int x = 2" });
-            }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldReturn0VariablesAfterReset([NoAutoProperties]MonoScriptEngine engine, ScriptPackSession scriptPackSession)
-            {
-                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
-                scriptPackSession.State[MonoScriptEngine.SessionKey] = session;
-
-                engine.Execute("int x = 1;", new string[0], new AssemblyReferences(), Enumerable.Empty<string>(),
-                    scriptPackSession);
-                engine.Execute(@"var y = ""www"";", new string[0], new AssemblyReferences(), Enumerable.Empty<string>(),
-    scriptPackSession);
-
-                scriptPackSession.State[MonoScriptEngine.SessionKey] = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
-
-                engine.GetLocalVariables(scriptPackSession).ShouldBeEmpty();
-            }
-        }
-
         public class TheExecuteMethod
         {
             [Theory, ScriptCsAutoData]
@@ -96,7 +55,7 @@ namespace ScriptCs.Engine.Mono.Tests
                 scriptHostFactory.Setup(f => f.CreateScriptHost(It.IsAny<IScriptPackManager>(), It.IsAny<string[]>()))
                     .Returns<IScriptPackManager, string[]>((p, q) => new ScriptHost(p, new ScriptEnvironment(q)));
 
-                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
+                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext( new CompilerSettings(), new ConsoleReportPrinter())) };
                 scriptPackSession.State[MonoScriptEngine.SessionKey] = session;
 
                 // Act
@@ -137,15 +96,16 @@ namespace ScriptCs.Engine.Mono.Tests
                 scriptHostFactory.Setup(f => f.CreateScriptHost(It.IsAny<IScriptPackManager>(), It.IsAny<string[]>()))
                     .Returns<IScriptPackManager, string[]>((p, q) => new ScriptHost(p, new ScriptEnvironment(q)));
 
-                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
+                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext( new CompilerSettings(), new ConsoleReportPrinter())) };
                 scriptPackSession.State[MonoScriptEngine.SessionKey] = session;
-                var refs = new AssemblyReferences(new[] { "System" });
+                var refs = new AssemblyReferences();
+                refs.PathReferences.Add("System");
 
                 // Act
                 engine.Execute(Code, new string[0], refs, Enumerable.Empty<string>(), scriptPackSession);
 
                 // Assert
-                ((SessionState<Evaluator>)scriptPackSession.State[MonoScriptEngine.SessionKey]).References.Paths.Count().ShouldEqual(1);
+                ((SessionState<Evaluator>)scriptPackSession.State[MonoScriptEngine.SessionKey]).References.PathReferences.Count().ShouldEqual(1);
             }
 
             [Theory, ScriptCsAutoData]
@@ -160,9 +120,10 @@ namespace ScriptCs.Engine.Mono.Tests
                 scriptHostFactory.Setup(f => f.CreateScriptHost(It.IsAny<IScriptPackManager>(), It.IsAny<string[]>()))
                     .Returns<IScriptPackManager, string[]>((p, q) => new ScriptHost(p, new ScriptEnvironment(q)));
 
-                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
+                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext( new CompilerSettings(), new ConsoleReportPrinter())) };
                 scriptPackSession.State[MonoScriptEngine.SessionKey] = session;
-                var refs = new AssemblyReferences(new[] { "System" });
+                var refs = new AssemblyReferences();
+                refs.PathReferences.Add("System");
 
                 // Act
                 var result = engine.Execute(code, new string[0], refs, Enumerable.Empty<string>(), scriptPackSession);
@@ -213,9 +174,10 @@ namespace ScriptCs.Engine.Mono.Tests
                 scriptHostFactory.Setup(f => f.CreateScriptHost(It.IsAny<IScriptPackManager>(), It.IsAny<string[]>()))
                     .Returns<IScriptPackManager, string[]>((p, q) => new ScriptHost(p, new ScriptEnvironment(q)));
 
-                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
+                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext( new CompilerSettings(), new ConsoleReportPrinter())) };
                 scriptPackSession.State[MonoScriptEngine.SessionKey] = session;
-                var refs = new AssemblyReferences(new[] { "System" });
+                var refs = new AssemblyReferences();
+                refs.PathReferences.Add("System");
 
                 // Act
                 var result = engine.Execute(Code, new string[0], refs, Enumerable.Empty<string>(), scriptPackSession);
@@ -238,9 +200,10 @@ namespace ScriptCs.Engine.Mono.Tests
                 scriptHostFactory.Setup(f => f.CreateScriptHost(It.IsAny<IScriptPackManager>(), It.IsAny<string[]>()))
                     .Returns<IScriptPackManager, string[]>((p, q) => new ScriptHost(p, new ScriptEnvironment(q)));
 
-                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
+                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext( new CompilerSettings(), new ConsoleReportPrinter())) };
                 scriptPackSession.State[MonoScriptEngine.SessionKey] = session;
-                var refs = new AssemblyReferences(new[] { "System" });
+                var refs = new AssemblyReferences();
+                refs.PathReferences.Add("System");
 
                 // Act
                 var result = engine.Execute(Code, new string[0], refs, Enumerable.Empty<string>(), scriptPackSession);
@@ -261,9 +224,10 @@ namespace ScriptCs.Engine.Mono.Tests
                 scriptHostFactory.Setup(f => f.CreateScriptHost(It.IsAny<IScriptPackManager>(), It.IsAny<string[]>()))
                     .Returns<IScriptPackManager, string[]>((p, q) => new ScriptHost(p, new ScriptEnvironment(q)));
 
-                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
+                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext( new CompilerSettings(), new ConsoleReportPrinter())) };
                 scriptPackSession.State[MonoScriptEngine.SessionKey] = session;
-                var refs = new AssemblyReferences(new[] { "System" });
+                var refs = new AssemblyReferences();
+                refs.PathReferences.Add("System");
 
                 // Act
                 var result = engine.Execute(Code, new string[0], refs, Enumerable.Empty<string>(), scriptPackSession);
@@ -285,9 +249,10 @@ namespace ScriptCs.Engine.Mono.Tests
                 scriptHostFactory.Setup(f => f.CreateScriptHost(It.IsAny<IScriptPackManager>(), It.IsAny<string[]>()))
                     .Returns<IScriptPackManager, string[]>((p, q) => new ScriptHost(p, new ScriptEnvironment(q)));
 
-                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
+                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext( new CompilerSettings(), new ConsoleReportPrinter())) };
                 scriptPackSession.State[MonoScriptEngine.SessionKey] = session;
-                var refs = new AssemblyReferences(new[] { "System" });
+                var refs = new AssemblyReferences();
+                refs.PathReferences.Add("System");
 
                 // Act
                 var result = engine.Execute(Code, new string[0], refs, Enumerable.Empty<string>(), scriptPackSession);
@@ -308,9 +273,10 @@ namespace ScriptCs.Engine.Mono.Tests
                 scriptHostFactory.Setup(f => f.CreateScriptHost(It.IsAny<IScriptPackManager>(), It.IsAny<string[]>()))
                     .Returns<IScriptPackManager, string[]>((p, q) => new ScriptHost(p, new ScriptEnvironment(q)));
 
-                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter())) };
+                var session = new SessionState<Evaluator> { Session = new Evaluator(new CompilerContext( new CompilerSettings(), new ConsoleReportPrinter())) };
                 scriptPackSession.State[MonoScriptEngine.SessionKey] = session;
-                var refs = new AssemblyReferences(new[] { "System" });
+                var refs = new AssemblyReferences();
+                refs.PathReferences.Add("System");
 
                 // Act
                 var result = engine.Execute(Code, new string[0], refs, Enumerable.Empty<string>(), scriptPackSession);
@@ -318,35 +284,12 @@ namespace ScriptCs.Engine.Mono.Tests
                 // Assert
                 result.ReturnValue.ShouldBeNull();
             }
-
-            [Theory, ScriptCsAutoData]
-            public void ShouldInitializeScriptLibraryWrapperHost(
-                [Frozen] Mock<IScriptHostFactory> scriptHostFactory,
-                Mock<IScriptPackManager> manager,
-                [NoAutoProperties] MonoScriptEngine engine,
-                ScriptPackSession scriptPackSession
-                )
-            {
-                // Arrange
-                const string Code = "var theNumber = 42; //this should compile";
-
-                var refs = new AssemblyReferences(new[] { "System" });
-
-                scriptHostFactory.Setup(s => s.CreateScriptHost(It.IsAny<IScriptPackManager>(), It.IsAny<string[]>()))
-                    .Returns(new ScriptHost(manager.Object, null));
-
-                // Act
-                engine.Execute(Code, new string[0], refs, Enumerable.Empty<string>(), scriptPackSession);
-
-                // Assert
-                ScriptLibraryWrapper.ScriptHost.ShouldNotEqual(null);
-            }
         }
 
         public class MonoTestScriptEngine : MonoScriptEngine
         {
-            public MonoTestScriptEngine(IScriptHostFactory scriptHostFactory, TestLogProvider logProvider)
-                : base(scriptHostFactory, logProvider)
+            public MonoTestScriptEngine(IScriptHostFactory scriptHostFactory, ILog logger)
+                : base(scriptHostFactory, logger)
             {
             }
 

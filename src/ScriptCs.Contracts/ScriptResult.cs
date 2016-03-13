@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Linq;
-using System.Collections.Generic;
 using System.Runtime.ExceptionServices;
 
 namespace ScriptCs.Contracts
 {
     public class ScriptResult
     {
-        private readonly HashSet<string> _invalidNamespaces = new HashSet<string>();
-
         public static readonly ScriptResult Empty = new ScriptResult();
 
         public static readonly ScriptResult Incomplete = new ScriptResult { IsCompleteSubmission = false };
@@ -22,8 +18,7 @@ namespace ScriptCs.Contracts
         public ScriptResult(
             object returnValue = null,
             Exception executionException = null,
-            Exception compilationException = null, 
-            IEnumerable<string> invalidNamespaces = null)
+            Exception compilationException = null)
         {
             if (returnValue != null)
             {
@@ -40,14 +35,6 @@ namespace ScriptCs.Contracts
                 CompileExceptionInfo = ExceptionDispatchInfo.Capture(compilationException);
             }
 
-            if (invalidNamespaces != null)
-            {
-                foreach (var ns in invalidNamespaces.Distinct())
-                {
-                    _invalidNamespaces.Add(ns);
-                }
-            }
-
             IsCompleteSubmission = true;
         }
 
@@ -56,14 +43,6 @@ namespace ScriptCs.Contracts
         public ExceptionDispatchInfo ExecuteExceptionInfo { get; private set; }
 
         public ExceptionDispatchInfo CompileExceptionInfo { get; private set; }
-
-        public IEnumerable<string> InvalidNamespaces
-        {
-            get
-            {
-                return _invalidNamespaces.ToArray();
-            }
-        }
 
         public bool IsCompleteSubmission { get; private set; }
     }
