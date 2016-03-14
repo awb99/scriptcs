@@ -24,7 +24,7 @@ namespace ScriptCs
         {
             if (argument == null)
             {
-                throw new ArgumentNullException(parameterName, string.Format(CultureInfo.InvariantCulture, "{0} is null.", parameterName));
+            	throw new ArgumentNullException("guard againstnullargument"); //parameterName, string.Format(CultureInfo.InvariantCulture, "{0} is null.", parameterName));
             }
         }
 
@@ -44,7 +44,7 @@ namespace ScriptCs
         {
             if (typeof(TArgument).IsNullableType() && argument == null)
             {
-                throw new ArgumentNullException(parameterName, string.Format(CultureInfo.InvariantCulture, "{0} is null.", parameterName));
+            	throw new ArgumentNullException("againstnullarguemtnifnullable"); //parameterName, string.Format(CultureInfo.InvariantCulture, "{0} is null.", parameterName));
             }
         }
 
@@ -64,7 +64,7 @@ namespace ScriptCs
         {
             if (argumentProperty == null)
             {
-                throw new ArgumentException(string.Format(CultureInfo.InvariantCulture, "{0}.{1} is null.", parameterName, propertyName), parameterName);
+            	throw new ArgumentException("aainstnularguentproperty"); // string.Format(CultureInfo.InvariantCulture, "{0}.{1} is null.", parameterName, propertyName), parameterName);
             }
         }
 
@@ -86,7 +86,7 @@ namespace ScriptCs
         {
             if (typeof(TProperty).IsNullableType() && argumentProperty == null)
             {
-                throw new ArgumentException(string.Format(CultureInfo.InvariantCulture, "{0}.{1} is null.", parameterName, propertyName), parameterName);
+            	throw new ArgumentException("guardagainstnullpropertyifnullable"); //string.Format(CultureInfo.InvariantCulture, "{0}.{1} is null.", parameterName, propertyName), parameterName);
             }
         }
 

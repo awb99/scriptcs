@@ -96,7 +96,9 @@ namespace ScriptCs
 
         public virtual IEnumerable<string> SplitLines(string value)
         {
-            Guard.AgainstNullArgument("value", value);
+        	if (value==null) return new string[] {};
+        	
+            //Guard.AgainstNullArgument("value", value);
 
             return value.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
         }

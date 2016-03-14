@@ -16,19 +16,33 @@ namespace ScriptCs.Hosting
 
         protected override IContainer CreateContainer()
         {
+        	Console.WriteLine("1");
             var builder = new ContainerBuilder();
+            Console.WriteLine("2");
             this.Logger.Debug("Registering initialization services");
+            Console.WriteLine("3");
             builder.RegisterInstance<ILog>(this.Logger);
+            Console.WriteLine("4");
             builder.RegisterType<ScriptServicesBuilder>().As<IScriptServicesBuilder>();
+            Console.WriteLine("5");
             RegisterOverrideOrDefault<IFileSystem>(builder, b => b.RegisterType<FileSystem>().As<IFileSystem>().SingleInstance());
+            Console.WriteLine("6");
             RegisterOverrideOrDefault<IAssemblyUtility>(builder, b => b.RegisterType<AssemblyUtility>().As<IAssemblyUtility>().SingleInstance());
+            Console.WriteLine("7");
             RegisterOverrideOrDefault<IPackageContainer>(builder, b => b.RegisterType<PackageContainer>().As<IPackageContainer>().SingleInstance());
+            Console.WriteLine("8");
             RegisterOverrideOrDefault<IPackageAssemblyResolver>(builder, b => b.RegisterType<PackageAssemblyResolver>().As<IPackageAssemblyResolver>().SingleInstance());
+            Console.WriteLine("9");
             RegisterOverrideOrDefault<IAssemblyResolver>(builder, b => b.RegisterType<AssemblyResolver>().As<IAssemblyResolver>().SingleInstance());
+            Console.WriteLine("A");
             RegisterOverrideOrDefault<IInstallationProvider>(builder, b => b.RegisterType<NugetInstallationProvider>().As<IInstallationProvider>().SingleInstance());
+            Console.WriteLine("B");
             RegisterOverrideOrDefault<IPackageInstaller>(builder, b => b.RegisterType<PackageInstaller>().As<IPackageInstaller>().SingleInstance());
+            Console.WriteLine("C");
             RegisterOverrideOrDefault<IModuleLoader>(builder, b => b.RegisterType<ModuleLoader>().As<IModuleLoader>().SingleInstance());
+            Console.WriteLine("D");
             RegisterOverrideOrDefault<IAppDomainAssemblyResolver>(builder, b => b.RegisterType<AppDomainAssemblyResolver>().As<IAppDomainAssemblyResolver>().SingleInstance());
+            Console.WriteLine("E");
             return builder.Build();
         }
 
@@ -64,6 +78,7 @@ namespace ScriptCs.Hosting
         {
             if (_fileSystem == null)
             {
+            	
                 this.Logger.Debug("Resolving FileSystem");
                 _fileSystem = Container.Resolve<IFileSystem>();
             }

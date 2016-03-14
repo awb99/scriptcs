@@ -18,7 +18,8 @@
               
             if (!File.Exists(fileName))
             {
-                Log.LogError(null, null, null, null, 0, 0, 0, 0, String.Format("Could not find version file: {0}", fileName), new object[0]);
+               Console.WriteLine("Could not find file " + fileName);
+                //Log.LogError(null, null, null, null, 0, 0, 0, 0, String.Format("Could not find version file: {0}", fileName), new object[0]);
             }
             
             string content = File.ReadAllText(fileName);

@@ -10,6 +10,8 @@ using ScriptCs.Command;
 using ScriptCs.Hosting;
 using ScriptCs.Contracts;
 using ScriptCs.Engine.Roslyn;
+using ScriptCs.Engine.Mono;
+
 using ScriptCs;
 
 namespace testFlorian
@@ -20,7 +22,8 @@ namespace testFlorian
 		{
 			ObjectSerializer serializer = new ObjectSerializer ();
 
-			RoslynScriptEngine scriptEngine =new RoslynScriptEngine (new ScriptHostFactory (), logger);
+			var scriptEngine =new MonoScriptEngine (new ScriptHostFactory (), logger);
+			//RoslynScriptEngine scriptEngine =new RoslynScriptEngine (new ScriptHostFactory (), logger);
 			var initializationServices = new InitializationServices(logger);
 			initializationServices.GetAppDomainAssemblyResolver().Initialize();
 			

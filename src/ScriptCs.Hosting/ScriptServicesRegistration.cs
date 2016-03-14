@@ -24,7 +24,7 @@ namespace ScriptCs.Hosting
             if (_overrides.ContainsKey(typeof(T)))
             {
                 var reg = _overrides[typeof(T)];
-                this.Logger.Debug(string.Format("Registering override: {0}", reg));
+                //this.Logger.Debug(string.Format("Registering override: {0}", reg));
 
                 if (reg.GetType().IsSubclassOf(typeof(Type)))
                 {
@@ -37,7 +37,7 @@ namespace ScriptCs.Hosting
             }
             else
             {
-                this.Logger.Debug(string.Format("Registering default: {0}", typeof(T)));
+               // this.Logger.Debug(string.Format("Registering default: {0}", typeof(T)));
                 registrationAction(builder);
             }
         }

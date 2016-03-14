@@ -91,7 +91,7 @@ namespace ScriptCs.Hosting
 
             foreach (var module in modules)
             {
-                _logger.Debug(string.Format("Initializing module: {0}", module.GetType().FullName));
+               // _logger.Debug(string.Format("Initializing module: {0}", module.GetType().FullName));
                 module.Initialize(config);
             }
 

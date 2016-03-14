@@ -41,7 +41,7 @@ namespace ScriptCs.Argument
 
         private string GetFileContent(string fileName)
         {
-            string filePath = _fileSystem.CurrentDirectory + '\\' + fileName;
+        	string filePath = System.IO.Path.Combine(_fileSystem.CurrentDirectory ,fileName);
             if (_fileSystem.FileExists(filePath))
             {
                 return _fileSystem.ReadFile(filePath);
